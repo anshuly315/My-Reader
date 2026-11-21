@@ -81,6 +81,9 @@ class DetailsViewModel @Inject constructor(
 ) : ViewModel() {
     val bookId: String = checkNotNull(saved[ARG_BOOK_ID]) { "details needs a book id" }
 
+    /** The e-book made from this PDF, once Dynamic Flow has finished it. */
+    fun finishedEpub() = library.finishedEpub(bookId)
+
     /** The book's own tags (Room v22), and every tag in the library for suggestions (owner, 2026-11-10). */
     val tags: StateFlow<List<String>> =
         tagRepo.tagsOf(bookId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(TAG_STOP_MS), emptyList())

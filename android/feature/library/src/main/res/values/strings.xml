@@ -915,4 +915,6 @@
     <string name="sync_running">Syncing…</string>
     <string name="sync_failed">Choose a sync folder first, or the folder could not be reached.</string>
     <string name="sync_done">Synced. %1$d reading places moved forward; newer settings taken: %2$d.</string>
+    <string name="action_save_epub">Save as e-book (EPUB)</string>
+    <string name="save_epub_not_ready">Open this book in Dynamic Flow first and let it finish converting; then it can be saved as an e-book.</string>
 </resources>

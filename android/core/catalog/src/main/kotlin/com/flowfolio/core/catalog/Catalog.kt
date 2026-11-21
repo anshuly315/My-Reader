@@ -33,7 +33,8 @@ data class CatalogBook(
     val files: List<BookFile> = emptyList()
 ) {
     /** The best file for the reader: EPUB first, then PDF. */
-    val preferred: BookFile? get() = files.firstOrNull { it.format == "EPUB" } ?: files.firstOrNull { it.format == "PDF" }
+    val preferred: BookFile? get() = files.firstOrNull { it.format == "EPUB" }
+        ?: files.firstOrNull { it.format == "PDF" }
 }
 
 /** One page of search results. */
@@ -95,10 +96,13 @@ internal fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
 
 internal fun JsonObject.text(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
 
-internal fun JsonObject.list(key: String): List<String> = (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+internal fun JsonObject.list(key: String): List<String> = (this[key] as? JsonArray)?.mapNotNull {
+    (it as? JsonPrimitive)?.contentOrNull
+}.orEmpty()
 
 /** Project Gutenberg, searched through the Gutendex service. About 70,000 books, most as EPUB. */
-class GutenbergSource(private val http: Http = UrlHttp, private val base: String = "https://gutendex.com") : CatalogSource {
+class GutenbergSource(private val http: Http = UrlHttp, private val base: String = "https://gutendex.com") :
+    CatalogSource {
     override val name = "Project Gutenberg"
     override val about = "More than 70,000 public-domain books, with author details."
 
@@ -107,7 +111,13 @@ class GutenbergSource(private val http: Http = UrlHttp, private val base: String
         val root = json.parseToJsonElement(http.get("$base/books/?page=$page$q")).jsonObject
         val books = root["results"]?.jsonArray.orEmpty().map { parse(it.jsonObject) }
         val total = (root["count"] as? JsonPrimitive)?.intOrNull ?: books.size
-        val next = if (root["next"] is JsonPrimitive && root["next"]?.jsonPrimitive?.contentOrNull != null) page + 1 else null
+        val next = if (root["next"] is JsonPrimitive &&
+            root["next"]?.jsonPrimitive?.contentOrNull != null
+        ) {
+            page + 1
+        } else {
+            null
+        }
         return CatalogPage(books, total, next)
     }
 
@@ -175,7 +185,13 @@ class ArchiveSource(private val http: Http = UrlHttp) : CatalogSource {
                 id = id,
                 title = d.text("title").ifEmpty { id },
                 authors = listOf(d["creator"]).filterNotNull().flatMap {
-                    if (it is JsonArray) it.mapNotNull { x -> (x as? JsonPrimitive)?.contentOrNull } else listOf(it.jsonPrimitive.content)
+                    if (it is JsonArray) {
+                        it.mapNotNull { x ->
+                            (x as? JsonPrimitive)?.contentOrNull
+                        }
+                    } else {
+                        listOf(it.jsonPrimitive.content)
+                    }
                 },
                 languages = listOf(d.text("language")).filter { it.isNotEmpty() },
                 coverUrl = "https://archive.org/services/img/$id",
@@ -196,10 +212,18 @@ class ArchiveSource(private val http: Http = UrlHttp) : CatalogSource {
                 file.endsWith(".pdf", true) -> "PDF"
                 else -> return@mapNotNull null
             }
-            BookFile("https://archive.org/download/${enc(book.id)}/${file.split('/').joinToString("/") { enc(it).replace("+", "%20") }}", fmt)
+            BookFile(
+                "https://archive.org/download/${enc(book.id)}/${file.split('/').joinToString("/") {
+                    enc(it).replace("+", "%20")
+                }}",
+                fmt
+            )
         }
         val desc = meta["metadata"]?.jsonObject?.let { it.text("description") }.orEmpty()
-        return book.copy(files = files, summary = desc.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(MAX_SUMMARY))
+        return book.copy(
+            files = files,
+            summary = desc.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(MAX_SUMMARY)
+        )
     }
 
     private companion object {
@@ -213,7 +237,9 @@ fun download(book: CatalogBook, dir: File, fetch: (String) -> ByteArray = UrlHtt
     val file = book.preferred ?: error("This book has no EPUB or PDF to download.")
     require(file.url.startsWith("https://")) { "Only https addresses are used." }
     dir.mkdirs()
-    val safe = (book.title.replace(Regex("[^\\p{L}\\p{N} ._-]"), "").trim().take(80).ifEmpty { book.id }) + "." + file.format.lowercase()
+    val safe =
+        (book.title.replace(Regex("[^\\p{L}\\p{N} ._-]"), "").trim().take(80).ifEmpty { book.id }) + "." +
+            file.format.lowercase()
     return File(dir, safe).also { it.writeBytes(fetch(file.url)) }
 }
 

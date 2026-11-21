@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package com.flowfolio.core.model
 
 /** How strongly the glass bars and panels blur what is behind them. */
@@ -19,6 +21,7 @@ object Options {
     const val BLUE_LIGHT = "blue_light"
     const val COLUMNS = "columns"
     const val VOLUME_KEYS = "volume_keys"
+    const val TAP_ZONE = "tap_zone"
 
     val orientations = listOf("auto", "portrait", "landscape")
 
@@ -26,6 +29,9 @@ object Options {
 
     /** 0 is off; 1 to 3 warm the screen more and more. */
     fun blueLight(o: Map<String, String>) = (o[BLUE_LIGHT]?.toIntOrNull() ?: 0).coerceIn(0, 3)
+
+    /** Taps that turn pages: 0 either half of the page, 1 only the outer edges, 2 none (swipe only). */
+    fun tapZone(o: Map<String, String>) = (o[TAP_ZONE]?.toIntOrNull() ?: 0).coerceIn(0, 2)
 
     /** The volume buttons in the reader: 0 leave them to the phone, 1 volume down turns forward, 2 volume up does. */
     fun volumeKeys(o: Map<String, String>) = (o[VOLUME_KEYS]?.toIntOrNull() ?: 0).coerceIn(0, 2)

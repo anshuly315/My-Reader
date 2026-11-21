@@ -299,4 +299,8 @@
     <string name="reader_volume_off">Off</string>
     <string name="reader_volume_down">Down = next</string>
     <string name="reader_volume_up">Up = next</string>
+    <string name="reader_tap_zone">Tap to turn pages</string>
+    <string name="reader_tap_halves">Halves</string>
+    <string name="reader_tap_edges">Edges only</string>
+    <string name="reader_tap_off">Off</string>
 </resources>

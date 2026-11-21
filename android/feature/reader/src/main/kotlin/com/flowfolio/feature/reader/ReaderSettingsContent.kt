@@ -265,6 +265,15 @@ private fun ControlsChoice(settings: UserSettings, viewModel: ReaderSettingsView
             modifier = Modifier.fillMaxWidth()
         )
     }
+    StackedOpt(stringResource(R.string.reader_tap_zone)) {
+        FlowFolioSegmented(
+            listOf(R.string.reader_tap_halves, R.string.reader_tap_edges, R.string.reader_tap_off)
+                .map { stringResource(it) },
+            Options.tapZone(settings.options),
+            { viewModel.setOption(Options.TAP_ZONE, it.toString()) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     StackedOpt(stringResource(R.string.reader_volume_keys)) {
         FlowFolioSegmented(
             listOf(R.string.reader_volume_off, R.string.reader_volume_down, R.string.reader_volume_up)

@@ -77,6 +77,9 @@ interface LibraryRepository {
     /** Downloads the chosen picture and makes it the book's cover; false when it could not be fetched. */
     suspend fun useCover(bookId: String, choice: CoverChoice): Boolean = false
 
+    /** The e-book (EPUB) made from a PDF by Dynamic Flow, when it is finished. */
+    fun finishedEpub(bookId: String): java.io.File? = null
+
     /** Removes the book and also deletes its file from the phone for good (the original, when it is read in place). */
     suspend fun deleteFromStorage(bookId: String) = delete(bookId)
 

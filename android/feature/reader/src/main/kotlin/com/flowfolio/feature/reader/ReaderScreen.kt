@@ -101,6 +101,7 @@ fun ReaderScreen(
     val readMillis by readingTime.readMillis.collectAsStateWithLifecycle()
     CompositionLocalProvider(
         LocalReadMillis provides readMillis,
+        LocalTapSettings provides userSettings.options,
         LocalTone provides tone,
         LocalRibbons provides marks.associate { it.page to it.color },
         LocalRightToLeft provides rightToLeft
@@ -327,7 +328,36 @@ internal fun SpreadReader(
  * forward on its right half; the right page of a spread taps forward anywhere (its left page taps back).
  */
 @Composable
-private fun swipeAnywhereConfig(rightPageOfSpread: Boolean = false): PageCurlConfig = rememberPageCurlConfig(
+private fun swipeAnywhereConfig(rightPageOfSpread: Boolean = false): PageCurlConfig =
+    baseSwipeConfig(rightPageOfSpread).also { config ->
+        val zone = Options.tapZone(LocalTapSettings.current)
+        androidx.compose.runtime.SideEffect {
+            config.tapForwardEnabled = zone != 2
+            config.tapBackwardEnabled = zone != 2 && !rightPageOfSpread
+            config.tapInteraction = when {
+                zone == 1 && rightPageOfSpread -> PageCurlConfig.TargetTapInteraction(
+                    forward = PageCurlConfig.TargetTapInteraction.Config(Rect(0.7f, 0f, 1f, 1f))
+                )
+
+                zone == 1 -> PageCurlConfig.TargetTapInteraction(
+                    forward = PageCurlConfig.TargetTapInteraction.Config(Rect(0.7f, 0f, 1f, 1f)),
+                    backward = PageCurlConfig.TargetTapInteraction.Config(Rect(0f, 0f, 0.3f, 1f))
+                )
+
+                rightPageOfSpread -> PageCurlConfig.TargetTapInteraction(
+                    forward = PageCurlConfig.TargetTapInteraction.Config(Rect(0f, 0f, 1f, 1f))
+                )
+
+                else -> PageCurlConfig.TargetTapInteraction()
+            }
+        }
+    }
+
+/** The options the page-turn taps read (set once by the reader screen). */
+internal val LocalTapSettings = androidx.compose.runtime.compositionLocalOf<Map<String, String>> { emptyMap() }
+
+@Composable
+private fun baseSwipeConfig(rightPageOfSpread: Boolean): PageCurlConfig = rememberPageCurlConfig(
     backPageColor = PAPER,
     dragInteraction = PageCurlConfig.GestureDragInteraction(),
     tapBackwardEnabled = !rightPageOfSpread,

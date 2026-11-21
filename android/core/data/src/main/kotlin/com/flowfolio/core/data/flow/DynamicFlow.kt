@@ -108,6 +108,9 @@ interface DynamicFlow {
     /** Removes the bundle: the book was deleted. */
     fun delete(bookId: String)
 
+    /** The finished e-book (EPUB) Dynamic Flow made from this PDF, or null while there is none. */
+    fun finishedEpub(bookId: String): java.io.File? = null
+
     /** No Dynamic Flow: for tests, and fakes that don't need it. */
     @Suppress("TooManyFunctions")
     object None : DynamicFlow {
@@ -409,6 +412,8 @@ class DefaultDynamicFlow @Inject constructor(
     override fun notify(notice: FlowNotice) {
         _notices.tryEmit(notice)
     }
+
+    override fun finishedEpub(bookId: String): java.io.File? = files.epub(bookId).takeIf { files.ready(bookId) }
 
     override fun delete(bookId: String) {
         scope.launch { files.delete(bookId) }

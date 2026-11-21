@@ -280,6 +280,8 @@ class DefaultLibraryRepository @Inject constructor(
         ok
     }
 
+    override fun finishedEpub(bookId: String): File? = flow.finishedEpub(bookId)
+
     override suspend fun deleteFromStorage(bookId: String) {
         val book = withContext(io) { dao.get(bookId) }
         if (book?.storageMode == StorageMode.LINK.name) withContext(io) { source.deleteFile(book.location) }

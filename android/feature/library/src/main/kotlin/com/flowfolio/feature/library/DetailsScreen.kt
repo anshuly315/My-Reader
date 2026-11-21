@@ -114,12 +114,14 @@ import com.flowfolio.core.model.BookStorage
 import com.flowfolio.core.model.ReadingIntent
 import com.flowfolio.core.model.pageLabel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A book's details page (the mock's `#s-details`). [origin] is the library row the book was opened from, so its cover
  * flies in from there. [onRead] opens the reader; it runs after the book-opening hinge. [onEdit] opens Edit details;
  * [onOpenBook] another book's details (the Author tab's other books).
  */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun DetailsScreen(
     origin: String,
@@ -145,6 +147,19 @@ fun DetailsScreen(
     val relink = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.relink(uri.toString())
     }
+    val saveEpub =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/epub+zip")) { uri ->
+            val epub = viewModel.finishedEpub()
+            if (uri != null && epub != null) {
+                scope.launch {
+                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
+                            epub.inputStream().use { it.copyTo(out) }
+                        }
+                    }
+                }
+            }
+        }
     val locate = { relink.launch(arrayOf("application/pdf", "application/epub+zip")) }
     LaunchedEffect(state.loading, book) { if (!state.loading && book == null) onBack() }
     if (book == null) return
@@ -169,6 +184,17 @@ fun DetailsScreen(
         onLocate = locate,
         onDelete = { libraryVm.onRequestDelete(book) },
         onDeleteFile = { libraryVm.onRequestDeleteFile(book) },
+        onSaveEpub = {
+            if (viewModel.finishedEpub() != null) {
+                saveEpub.launch(book.title.replace(Regex("[^A-Za-z0-9._ -]"), "_") + ".epub")
+            } else {
+                android.widget.Toast.makeText(
+                    context,
+                    R.string.save_epub_not_ready,
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        },
         onEdit = { onEdit(book) },
         onBook = onOpenBook,
         onFavorite = { libraryVm.toggleFavorite(book) },
@@ -199,6 +225,8 @@ internal data class DetailsActions(
     val onLocate: () -> Unit = {},
     val onDelete: () -> Unit = {},
     val onDeleteFile: () -> Unit = {},
+    /** Saves the e-book Dynamic Flow made from this PDF; null for books that are not PDFs. */
+    val onSaveEpub: (() -> Unit)? = null,
     val onEdit: () -> Unit = {},
     val onBook: (Book) -> Unit = {},
     /** Makes the book a favourite, or not; marks it finished, or not (owner, M3T2). */
@@ -625,6 +653,16 @@ private fun DetailsMenu(state: DetailsUiState, open: Boolean, actions: DetailsAc
             run(actions.onResetProgress),
             glyph = Glyph.Refresh
         )
+        if (book?.format == com.flowfolio.core.model.BookFormat.PDF) {
+            FlowFolioMenuItem(
+                stringResource(R.string.action_save_epub),
+                run(
+                    actions.onSaveEpub ?: {
+                    }
+                ),
+                glyph = Glyph.OpenBook
+            )
+        }
         FlowFolioMenuDivider()
         FlowFolioMenuItem(
             stringResource(R.string.action_remove_from_library),
