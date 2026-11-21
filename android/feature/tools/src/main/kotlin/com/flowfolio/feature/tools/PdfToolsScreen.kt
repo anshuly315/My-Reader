@@ -183,6 +183,7 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
     val pdfMime = arrayOf("application/pdf")
     val imageMime = arrayOf("image/*")
     val bookMime = arrayOf("*/*")
+    val pdfAndImageMime = arrayOf("application/pdf", "image/*")
     val pickMany =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addFiles(it) }
     val pickOne =
@@ -263,6 +264,7 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
                     ToolInput.MANY_PDF -> stringResource(R.string.tools_choose_pdfs)
                     ToolInput.IMAGES -> stringResource(R.string.tools_choose_images)
                     ToolInput.BOOK -> stringResource(R.string.tools_choose_book)
+                    ToolInput.PDF_AND_IMAGE -> stringResource(R.string.tools_choose_pdf_image)
                     ToolInput.NONE -> ""
                 },
                 onClick = {
@@ -271,6 +273,7 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
                         ToolInput.MANY_PDF -> pickMany.launch(pdfMime)
                         ToolInput.IMAGES -> pickMany.launch(imageMime)
                         ToolInput.BOOK -> pickOne.launch(bookMime)
+                        ToolInput.PDF_AND_IMAGE -> pickMany.launch(pdfAndImageMime)
                         ToolInput.NONE -> Unit
                     }
                 },
@@ -353,6 +356,19 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
                     FlowFolioChip("$d°", o.degrees == d, { vm.options { it.copy(degrees = d) } })
                 }
             }
+        }
+
+        PdfTool.STAMP_IMAGE -> {
+            ToolSlider(
+                stringResource(R.string.opt_opacity),
+                o.opacity,
+                { v -> vm.options { it.copy(opacity = v) } },
+                "${(o.opacity * 100).toInt()}%",
+                0.05f..1f
+            )
+            ToolField(stringResource(R.string.opt_stamp_width), o.size, { v ->
+                vm.options { it.copy(size = v) }
+            }, number = true)
         }
 
         PdfTool.WATERMARK -> {

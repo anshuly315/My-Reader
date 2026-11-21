@@ -149,6 +149,25 @@ class ToolsViewModel @Inject constructor(
                 }
             )
 
+            PdfTool.STAMP_IMAGE -> {
+                val pdfFile = input.firstOrNull { it.extension.equals("pdf", true) }
+                    ?: throw PdfToolException("Choose a PDF and a picture.")
+                val picture = input.firstOrNull { !it.extension.equals("pdf", true) }
+                    ?: throw PdfToolException("Choose a PDF and a picture.")
+                listOf(
+                    File(out, "stamped.pdf").also {
+                        kit.stampImage(pdfFile, picture, it, o.opacity, o.size.toIntOrNull() ?: 30)
+                    }
+                )
+            }
+
+            PdfTool.LINK_ADDRESSES -> {
+                val target = pdf("linked")
+                val n = kit.linkAddresses(first, target)
+                if (n == 0) throw PdfToolException("No web addresses were found in this PDF's text.")
+                listOf(target)
+            }
+
             PdfTool.WATERMARK -> listOf(
                 pdf("watermarked").also {
                     kit.watermark(

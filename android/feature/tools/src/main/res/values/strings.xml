@@ -191,4 +191,10 @@
     <string name="tool_blank_pdf">New blank PDF</string>
     <string name="tool_blank_pdf_sub">Empty A4 pages to write on or fill in.</string>
     <string name="opt_blank_pages">How many pages</string>
+    <string name="tool_stamp_image">Stamp image</string>
+    <string name="tool_stamp_image_sub">Put a logo or signature picture on every page.</string>
+    <string name="tool_link_addresses">Make links clickable</string>
+    <string name="tool_link_addresses_sub">Turn web addresses in the text into tappable links.</string>
+    <string name="tools_choose_pdf_image">Choose a PDF and a picture</string>
+    <string name="opt_stamp_width">Width of the picture (% of the page)</string>
 </resources>

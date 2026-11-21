@@ -304,4 +304,13 @@ class PdfToolkitTest {
         assertTrue(kit.info(out).pages == 3)
         assertThrows(IllegalArgumentException::class.java) { kit.blankPdf(File(tmp.root, "x.pdf"), 0) }
     }
+
+    @Test
+    fun addressesInTheTextBecomeLinks() {
+        val src = File(tmp.root, "links.txt").apply { writeText("Read more at https://example.com/page today.") }
+        val plain = File(tmp.root, "links.pdf")
+        kit.textToPdf(src, plain)
+        val out = File(tmp.root, "links-out.pdf")
+        assertTrue(kit.linkAddresses(plain, out) >= 1)
+    }
 }

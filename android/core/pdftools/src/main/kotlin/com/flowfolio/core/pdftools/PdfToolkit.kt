@@ -702,6 +702,77 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         }
     }
 
+    /** Draws the picture [image] on every page, [widthPercent] of the page width, centred, at [opacity] 0..1. */
+    fun stampImage(pdf: File, image: File, output: File, opacity: Float, widthPercent: Int) {
+        val bitmap = android.graphics.BitmapFactory.decodeFile(image.absolutePath)
+            ?: throw PdfToolException("${image.name} is not a picture that can be read.")
+        try {
+            load(pdf).use2 { d ->
+                val stamp = LosslessFactory.createFromImage(d, bitmap)
+                val state = PDExtendedGraphicsState().apply { nonStrokingAlphaConstant = opacity.coerceIn(0.05f, 1f) }
+                for (page in d.pages) {
+                    val box = page.mediaBox
+                    val w = box.width * widthPercent.coerceIn(MIN_STAMP, MAX_STAMP) / PERCENT
+                    val h = w * bitmap.height / bitmap.width
+                    PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
+                        cs.setGraphicsStateParameters(state)
+                        cs.drawImage(stamp, (box.width - w) / 2f, (box.height - h) / 2f, w, h)
+                    }
+                }
+                save(d, output)
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /** Turns web addresses written in the text into links that open when tapped; returns how many were made. */
+    fun linkAddresses(input: File, output: File): Int {
+        var made = 0
+        load(input).use2 { d ->
+            val found = ArrayList<Pair<Int, com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink>>()
+            val stripper = object : com.tom_roush.pdfbox.text.PDFTextStripper() {
+                override fun writeString(text: String, positions: MutableList<com.tom_roush.pdfbox.text.TextPosition>) {
+                    for (m in URL_PATTERN.findAll(text)) {
+                        val span = positions.subList(
+                            m.range.first.coerceAtMost(positions.size - 1),
+                            (m.range.last + 1).coerceAtMost(positions.size)
+                        )
+                        if (span.isEmpty()) continue
+                        val box = PDRectangle(
+                            span.minOf { it.xDirAdj },
+                            d.getPage(currentPageNo - 1).mediaBox.height - span.maxOf { it.yDirAdj },
+                            span.maxOf { it.xDirAdj + it.widthDirAdj } - span.minOf { it.xDirAdj },
+                            span.maxOf { it.heightDir }
+                        )
+                        val address = m.value.trimEnd('.', ',', ')', ';')
+                        val link = com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink().apply {
+                            rectangle = box
+                            action = com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI().apply {
+                                uri = if (address.startsWith("www.")) "https://$address" else address
+                            }
+                            setBorderStyle(
+                                com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDBorderStyleDictionary().apply {
+                                    width =
+                                        0f
+                                }
+                            )
+                        }
+                        found += (currentPageNo - 1) to link
+                    }
+                    super.writeString(text, positions)
+                }
+            }
+            stripper.getText(d)
+            for ((index, link) in found) {
+                d.getPage(index).annotations.add(link)
+                made++
+            }
+            save(d, output)
+        }
+        return made
+    }
+
     /** A new PDF of [pages] empty A4 pages (1 to 500). */
     fun blankPdf(output: File, pages: Int) {
         require(pages in 1..MAX_BLANK_PAGES) { "Choose between 1 and $MAX_BLANK_PAGES pages." }
@@ -1030,6 +1101,10 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
         const val MAX_BLANK_PAGES = 500
+        const val MIN_STAMP = 5
+        const val MAX_STAMP = 100
+        const val PERCENT = 100f
+        val URL_PATTERN = Regex("""(https?://|www\.)[^\s<>"]+""")
         const val TEXT_MARGIN = 56f
         const val TEXT_BODY = 11f
         const val TEXT_HEAD = 16f
