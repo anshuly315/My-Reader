@@ -147,6 +147,7 @@ fun SettingsScreen(
             onOfferResources = viewModel::offerResources,
             onClearCache = viewModel::clearCache,
             onResetApp = viewModel::resetApp,
+            onSyncFolder = viewModel::syncFolder,
             onExportSettings = viewModel::exportSettings,
             onImportSettings = viewModel::importSettings,
             onFillDetails = viewModel::fillDetails,

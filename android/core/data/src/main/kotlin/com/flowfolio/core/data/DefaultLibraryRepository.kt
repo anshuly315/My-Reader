@@ -294,6 +294,11 @@ class DefaultLibraryRepository @Inject constructor(
 
     override suspend fun setFavorite(bookId: String, on: Boolean) = withContext(io) { dao.setFavorite(bookId, on) }
 
+    override suspend fun advanceTo(bookId: String, page: Int) = withContext(io) {
+        val book = dao.get(bookId) ?: return@withContext
+        if (page > (book.lastPage ?: -1)) dao.updateLastPage(bookId, page)
+    }
+
     override suspend fun setFinished(bookId: String, on: Boolean) = withContext(io) {
         dao.setFinishedAt(bookId, if (on) System.currentTimeMillis() else null)
     }

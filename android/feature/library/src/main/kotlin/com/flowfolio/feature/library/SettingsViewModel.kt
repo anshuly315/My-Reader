@@ -70,6 +70,7 @@ data class SettingsActions(
     /** Housekeeping and updates (owner, M5 round 4). */
     val onClearCache: () -> Unit = {},
     val onResetApp: () -> Unit = {},
+    val onSyncFolder: suspend (android.net.Uri?) -> com.flowfolio.core.data.FolderSyncSummary? = { null },
     val onExportSettings: suspend () -> String = { "" },
     val onImportSettings: suspend (String) -> Int = { 0 },
     val onFillDetails: suspend ((Int, Int) -> Unit) -> Int = { 0 },
@@ -111,11 +112,25 @@ class SettingsViewModel @Inject constructor(
     private val updates: Updates,
     private val ocrPack: com.flowfolio.core.data.ocr.OcrPack,
     private val filler: com.flowfolio.core.data.BookDetailsFiller,
-    private val folders: com.flowfolio.core.data.FolderSync
+    private val folders: com.flowfolio.core.data.FolderSync,
+    private val folderBackup: com.flowfolio.core.data.FolderBackup
 ) : ViewModel() {
     suspend fun exportSettings() = repo.exportSettings()
 
     suspend fun importSettings(text: String) = repo.importSettings(text)
+
+    /** Remembers the sync folder, and runs a sync with it now. */
+    suspend fun syncFolder(tree: android.net.Uri?): com.flowfolio.core.data.FolderSyncSummary? {
+        if (tree != null) {
+            folderBackup.hold(tree)
+            repo.setOption(SYNC_FOLDER, tree.toString())
+            repo.setOption(SYNC_LAST, "0")
+        }
+        val folder = repo.settings.first().options[SYNC_FOLDER] ?: return null
+        val last = repo.settings.first().options[SYNC_LAST]?.toLongOrNull() ?: 0L
+        return runCatching { folderBackup.sync(folder, last) }.getOrNull()
+            ?.also { repo.setOption(SYNC_LAST, System.currentTimeMillis().toString()) }
+    }
 
     suspend fun fillDetails(onProgress: (Int, Int) -> Unit) = filler.fill(onProgress)
 
@@ -404,3 +419,6 @@ class SettingsViewModel @Inject constructor(
         const val STOP_MS = 5_000L
     }
 }
+
+private const val SYNC_FOLDER = "sync_folder"
+private const val SYNC_LAST = "sync_last"

@@ -67,6 +67,24 @@ internal fun BackupRows(actions: SettingsActions) {
             }
         }
     }
+    val pickSync = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                message = context.getString(R.string.sync_running)
+                val done = actions.onSyncFolder(uri)
+                message = syncMessage(context, done)
+            }
+        }
+    }
+    ActionRow(R.string.sync_pick, R.string.sync_pick_detail) { pickSync.launch(null) }
+    Divider()
+    ActionRow(R.string.sync_now, R.string.sync_now_detail) {
+        scope.launch {
+            message = context.getString(R.string.sync_running)
+            message = syncMessage(context, actions.onSyncFolder(null))
+        }
+    }
+    Divider()
     ActionRow(R.string.backup_save, R.string.backup_save_detail) { save.launch("flowfolio-settings.txt") }
     Divider()
     ActionRow(R.string.backup_restore, R.string.backup_restore_detail) { restore.launch(arrayOf("*/*")) }
@@ -98,3 +116,9 @@ internal fun BackupRows(actions: SettingsActions) {
     }
     Divider()
 }
+
+private fun syncMessage(context: android.content.Context, done: com.flowfolio.core.data.FolderSyncSummary?): String =
+    when {
+        done == null -> context.getString(R.string.sync_failed)
+        else -> context.getString(R.string.sync_done, done.booksMerged, if (done.settingsFetched) 1 else 0)
+    }

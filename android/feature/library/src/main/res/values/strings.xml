@@ -908,4 +908,11 @@
     <string name="cover_saving">Saving the cover…</string>
     <string name="cover_failed">That picture could not be saved. Try another.</string>
     <string name="delete_files_too">Delete files too</string>
+    <string name="sync_pick">Choose a sync folder</string>
+    <string name="sync_pick_detail">A folder on this phone, for example one a sync app such as Syncthing watches. Settings, reading places, favourites and finished books are kept there.</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_now_detail">Updates the sync folder and takes in newer changes from it.</string>
+    <string name="sync_running">Syncing…</string>
+    <string name="sync_failed">Choose a sync folder first, or the folder could not be reached.</string>
+    <string name="sync_done">Synced. %1$d reading places moved forward; newer settings taken: %2$d.</string>
 </resources>

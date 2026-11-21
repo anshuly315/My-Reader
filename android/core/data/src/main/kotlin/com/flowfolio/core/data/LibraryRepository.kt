@@ -91,6 +91,9 @@ interface LibraryRepository {
     /** Marks the book a favourite, or not (owner, M3T2). */
     suspend fun setFavorite(bookId: String, on: Boolean) = Unit
 
+    /** Moves the reading place forward to [page] (0-based); a place already further on is kept. */
+    suspend fun advanceTo(bookId: String, page: Int) = Unit
+
     /** Marks the book finished now, or not finished (owner, M3T2). */
     suspend fun setFinished(bookId: String, on: Boolean) = Unit
 
