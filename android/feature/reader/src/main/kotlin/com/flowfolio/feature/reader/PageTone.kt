@@ -42,25 +42,35 @@ enum class PageTone(val paper: Color, val ink: Color?, val dark: Boolean) {
     val tint: PageTint? get() = ink?.let { PageTint(paper.toArgb(), it.toArgb(), invert = dark) }
 }
 
+/** The papers Auto uses in a light and in a dark app (Customise → Day and night); set by the app shell. */
+object AutoPaper {
+    @Volatile
+    var day: PaperStyle = PaperStyle.AUTO
+
+    @Volatile
+    var night: PaperStyle = PaperStyle.AUTO
+}
+
 /**
  * The tone a paper style gives: Auto follows the app (as printed in light mode, Night in dark mode; with the Rustic
  * theme, [rustic], Sepia in light mode and Rustic in dark mode).
  */
 fun PaperStyle.tone(appDark: Boolean, rustic: Boolean = false): PageTone = when (this) {
-    PaperStyle.AUTO -> when {
+    PaperStyle.AUTO -> autoTone(appDark, rustic)
+    PaperStyle.PAPER -> PageTone.PAPER
+    PaperStyle.SEPIA -> PageTone.SEPIA
+    PaperStyle.NIGHT -> PageTone.NIGHT
+    PaperStyle.BLACK -> PageTone.BLACK
+    PaperStyle.RUSTIC -> PageTone.RUSTIC
+}
+
+private fun autoTone(appDark: Boolean, rustic: Boolean): PageTone {
+    val chosen = if (appDark) AutoPaper.night else AutoPaper.day
+    return when {
+        chosen != PaperStyle.AUTO -> chosen.tone(appDark, rustic)
         rustic -> if (appDark) PageTone.RUSTIC else PageTone.SEPIA
         else -> if (appDark) PageTone.NIGHT else PageTone.PRINTED
     }
-
-    PaperStyle.PAPER -> PageTone.PAPER
-
-    PaperStyle.SEPIA -> PageTone.SEPIA
-
-    PaperStyle.NIGHT -> PageTone.NIGHT
-
-    PaperStyle.BLACK -> PageTone.BLACK
-
-    PaperStyle.RUSTIC -> PageTone.RUSTIC
 }
 
 /** The open book's pages run right to left. */

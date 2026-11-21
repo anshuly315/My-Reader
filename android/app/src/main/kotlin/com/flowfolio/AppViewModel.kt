@@ -9,7 +9,9 @@ import com.flowfolio.core.data.Updates
 import com.flowfolio.core.data.flow.DynamicFlow
 import com.flowfolio.core.model.AppStyle
 import com.flowfolio.core.model.FlowNotice
+import com.flowfolio.core.model.LibrarySort
 import com.flowfolio.core.model.MaterialSeed
+import com.flowfolio.core.model.Options
 import com.flowfolio.core.model.ThemePreference
 import com.flowfolio.core.model.UserSettings
 import com.flowfolio.feature.library.RESOURCES_OFFERED
@@ -43,7 +45,8 @@ class AppViewModel @Inject constructor(
     private val reader: ReaderRepository,
     private val flow: DynamicFlow,
     private val updates: Updates,
-    private val folders: com.flowfolio.core.data.FolderSync
+    private val folders: com.flowfolio.core.data.FolderSync,
+    private val library: com.flowfolio.core.data.LibraryRepository
 ) : ViewModel() {
     /** True until the reader has answered the first-start question about the phone's books. */
     val askAboutPhone: StateFlow<Boolean> = settings.settings
@@ -85,9 +88,27 @@ class AppViewModel @Inject constructor(
     val scanAsk: StateFlow<FlowNotice.ScanAsk?> = _scanAsk.asStateFlow()
 
     init {
+        viewModelScope.launch { chooseStart() }
         viewModelScope.launch {
             flow.notices.collect { if (it is FlowNotice.ScanAsk) _scanAsk.value = it }
         }
+    }
+
+    private val startRoute = Channel<String>(Channel.BUFFERED)
+
+    /** The tab the reader chose to start on, sent once when the app starts (not when only the screen turns). */
+    val startRoutes: Flow<String> = startRoute.receiveAsFlow()
+
+    private suspend fun chooseStart() {
+        val o = settings.settings.first().options
+        if (Options.openLast(o)) {
+            val last = library.observeBooks(LibrarySort.RECENT).first().firstOrNull { it.lastOpenedAtMillis != null }
+            if (last != null) {
+                directOpen.send(last.id to null)
+                return
+            }
+        }
+        Options.startTab(o).takeIf { it != "library" }?.let { startRoute.send(it) }
     }
 
     /** The scan question's answer: convert now or not, and whether to ask again for other books. */

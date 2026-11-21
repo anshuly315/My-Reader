@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,6 +51,7 @@ import com.flowfolio.core.designsystem.clearOfChrome
 import com.flowfolio.core.designsystem.reveal
 import com.flowfolio.core.model.GlassMode
 import com.flowfolio.core.model.Options
+import com.flowfolio.core.model.PaperStyle
 import com.flowfolio.feature.library.AnnotationsScreen
 import com.flowfolio.feature.library.AnnotationsViewModel
 import com.flowfolio.feature.library.BookAnnotationsScreen
@@ -69,6 +71,7 @@ import com.flowfolio.feature.library.SettingsScreen
 import com.flowfolio.feature.library.ShelfPageScreen
 import com.flowfolio.feature.library.ShelfPageViewModel
 import com.flowfolio.feature.library.ShelvesScreen
+import com.flowfolio.feature.reader.AutoPaper
 import com.flowfolio.feature.reader.ReaderScreen
 import com.flowfolio.feature.tools.AiSettingsScreen
 import com.flowfolio.feature.tools.DiscoverScreen
@@ -83,6 +86,11 @@ import com.flowfolio.feature.tools.ToolPrefs
 fun FlowFolioApp(appViewModel: AppViewModel) {
     val nav = rememberNavController()
     LaunchedEffect(nav) { appViewModel.directOpens.collect { (id, layout) -> nav.navigate(Routes.reader(id, layout)) } }
+    LaunchedEffect(nav) {
+        appViewModel.startRoutes.collect { route ->
+            TopLevel.entries.firstOrNull { it.route == route }?.let(nav::switchTo)
+        }
+    }
     LaunchedEffect(nav) { appViewModel.updatesOpened.collect { nav.switchTo(TopLevel.Settings) } }
     val updatesFocus by appViewModel.updatesFocus.collectAsStateWithLifecycle()
     val entry by nav.currentBackStackEntryAsState()
@@ -90,12 +98,19 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
     var shelfToShow by rememberSaveable { mutableStateOf<Long?>(null) }
     val options by appViewModel.options.collectAsStateWithLifecycle()
     val glass = Options.glass(options)
+    SideEffect {
+        AutoPaper.day = runCatching { PaperStyle.valueOf(Options.dayPapers[Options.dayPaperIndex(options)]) }
+            .getOrDefault(PaperStyle.AUTO)
+        AutoPaper.night = runCatching { PaperStyle.valueOf(Options.nightPapers[Options.nightPaperIndex(options)]) }
+            .getOrDefault(PaperStyle.AUTO)
+    }
     val palette = FlowFolio.palette
     CompositionLocalProvider(
         LocalCoverRadius provides Options.coverRadiusDp[Options.coverRadiusIndex(options)],
         com.flowfolio.core.designsystem.LocalLibraryColumns provides Options.columns(options),
         LocalCoverScale provides Options.coverSizes[Options.coverSizeIndex(options)],
         LocalHiddenTabs provides Options.hiddenTabs(options),
+        LocalTabOrder provides Options.tabOrder(options),
         LocalToolPrefs provides ToolPrefs(Options.hiddenTools(options)) {
             appViewModel.setOption(Options.HIDDEN_TOOLS, it.joinToString(","))
         },

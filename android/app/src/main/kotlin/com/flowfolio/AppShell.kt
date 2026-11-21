@@ -92,6 +92,19 @@ import dev.chrisbanes.haze.rememberHazeState
 /** Routes of the tabs the reader chose to hide on the Customise page (Settings never hides). */
 val LocalHiddenTabs = androidx.compose.runtime.staticCompositionLocalOf<Set<String>> { emptySet() }
 
+/** Routes in the order chosen on Customise; tabs it leaves out follow in their usual order. */
+val LocalTabOrder = androidx.compose.runtime.staticCompositionLocalOf<List<String>> { emptyList() }
+
+/** The tabs to show: not hidden, in the chosen order. */
+@Composable
+private fun shownTabs(skipSettings: Boolean): List<TopLevel> {
+    val hidden = LocalHiddenTabs.current
+    val order = LocalTabOrder.current
+    return TopLevel.entries
+        .filter { it.route !in hidden && !(skipSettings && it == TopLevel.Settings) }
+        .sortedBy { order.indexOf(it.route).let { i -> if (i < 0) Int.MAX_VALUE else i } }
+}
+
 enum class TopLevel(val route: String, val glyph: Glyph, @StringRes val label: Int) {
     Library("library", Glyph.Library, R.string.tab_library),
     Shelves("shelves", Glyph.Shelves, R.string.tab_shelves),
@@ -199,8 +212,7 @@ private fun TabBar(selected: TopLevel, onSelect: (TopLevel) -> Unit) {
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val hidden = LocalHiddenTabs.current
-        TopLevel.entries.filter { it.route !in hidden }.forEach {
+        shownTabs(false).forEach {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TabItem(it, it == selected, onSelect, Modifier.fillMaxWidth())
             }
@@ -230,8 +242,7 @@ private fun Rail(selected: TopLevel, onSelect: (TopLevel) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AppMark(Modifier.padding(bottom = 18.dp))
-        val hidden = LocalHiddenTabs.current
-        TopLevel.entries.filter { it != TopLevel.Settings && it.route !in hidden }.forEach {
+        shownTabs(true).forEach {
             TabItem(it, it == selected, onSelect, Modifier.width(RAIL_ITEM))
         }
         Spacer(Modifier.weight(1f))

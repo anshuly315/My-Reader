@@ -1,4 +1,4 @@
-@file:Suppress("MagicNumber")
+@file:Suppress("MagicNumber", "TooManyFunctions")
 
 package com.flowfolio.core.model
 
@@ -22,6 +22,28 @@ object Options {
     const val COLUMNS = "columns"
     const val VOLUME_KEYS = "volume_keys"
     const val TAP_ZONE = "tap_zone"
+    const val START_TAB = "start_tab"
+    const val OPEN_LAST = "open_last"
+    const val TAB_ORDER = "tab_order"
+    const val DAY_PAPER = "day_paper"
+    const val NIGHT_PAPER = "night_paper"
+
+    /** Paper for Auto in a light app, then in a dark one (names of [PaperStyle]). */
+    val dayPapers = listOf("AUTO", "PAPER", "SEPIA")
+    val nightPapers = listOf("AUTO", "BLACK", "RUSTIC")
+
+    fun dayPaperIndex(o: Map<String, String>) = dayPapers.indexOf(o[DAY_PAPER]).coerceAtLeast(0)
+
+    fun nightPaperIndex(o: Map<String, String>) = nightPapers.indexOf(o[NIGHT_PAPER]).coerceAtLeast(0)
+
+    /** The route the app opens on; anything unknown means the library. */
+    fun startTab(o: Map<String, String>) = o[START_TAB]?.takeIf { it.isNotBlank() } ?: "library"
+
+    /** Open the book read last, straight into the reader, when the app starts. */
+    fun openLast(o: Map<String, String>) = o[OPEN_LAST] == "1"
+
+    /** Tab routes in the order the reader chose; routes it does not mention keep their usual place after them. */
+    fun tabOrder(o: Map<String, String>): List<String> = o[TAB_ORDER]?.split(',')?.filter { it.isNotBlank() }.orEmpty()
 
     val orientations = listOf("auto", "portrait", "landscape")
 

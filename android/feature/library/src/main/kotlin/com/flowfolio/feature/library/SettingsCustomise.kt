@@ -62,6 +62,7 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
             )
         }
     }
+    StartupGroup(settings, actions)
     Group(R.string.custom_tabs, 5) {
         val hidden = Options.hiddenTabs(o)
         HIDEABLE_TABS.forEachIndexed { i, (route, label) ->
@@ -73,6 +74,60 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
         }
     }
 }
+
+/** Start-up and day/night choices: which tab opens, reopening the last book, tab order, and Auto's papers. */
+@Composable
+internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
+    val o = settings.options
+    val routes = listOf("library", "shelves", "notebook", "tools")
+    Group(R.string.custom_startup, 6) {
+        Choice(R.string.custom_start_tab) {
+            FlowFolioSegmented(
+                (listOf(R.string.custom_tab_library) + HIDEABLE_TABS.map { it.second }).map { stringResource(it) },
+                routes.indexOf(Options.startTab(o)).coerceAtLeast(0),
+                { actions.onOption(Options.START_TAB, routes[it]) }
+            )
+        }
+        Divider()
+        SwitchRow(R.string.custom_open_last, R.string.custom_open_last_detail, Options.openLast(o), {
+            actions.onOption(Options.OPEN_LAST, if (it) "1" else "0")
+        })
+        Divider()
+        Choice(R.string.custom_tab_order) {
+            FlowFolioSegmented(
+                listOf(
+                    R.string.custom_order_usual,
+                    R.string.custom_order_tools_first,
+                    R.string.custom_order_notebook_first
+                )
+                    .map { stringResource(it) },
+                TAB_ORDERS.indexOfFirst { it == o[Options.TAB_ORDER].orEmpty() }.coerceAtLeast(0),
+                { actions.onOption(Options.TAB_ORDER, TAB_ORDERS[it]) }
+            )
+        }
+    }
+    Group(R.string.custom_daynight, 7) {
+        Choice(R.string.custom_day_paper) {
+            FlowFolioSegmented(
+                listOf(R.string.custom_paper_auto, R.string.custom_paper_paper, R.string.custom_paper_sepia)
+                    .map { stringResource(it) },
+                Options.dayPaperIndex(o),
+                { actions.onOption(Options.DAY_PAPER, Options.dayPapers[it]) }
+            )
+        }
+        Divider()
+        Choice(R.string.custom_night_paper) {
+            FlowFolioSegmented(
+                listOf(R.string.custom_paper_auto, R.string.custom_paper_black, R.string.custom_paper_rustic)
+                    .map { stringResource(it) },
+                Options.nightPaperIndex(o),
+                { actions.onOption(Options.NIGHT_PAPER, Options.nightPapers[it]) }
+            )
+        }
+    }
+}
+
+private val TAB_ORDERS = listOf("", "tools,library,shelves,notebook", "notebook,library,shelves,tools")
 
 @Composable
 private fun ColumnScope.Choice(label: Int, content: @Composable () -> Unit) {
