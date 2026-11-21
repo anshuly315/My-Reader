@@ -773,6 +773,30 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         return made
     }
 
+    /** A comic book archive (.cbz, a zip of page pictures) as a PDF, the pictures in name order. */
+    fun comicToPdf(archive: File, output: File, workDir: File) {
+        val pictures = ArrayList<File>()
+        workDir.mkdirs()
+        try {
+            java.util.zip.ZipFile(archive).use { zip ->
+                zip.entries().asSequence()
+                    .filter { !it.isDirectory && COMIC_PICTURE.containsMatchIn(it.name) }
+                    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+                    .forEachIndexed { i, entry ->
+                        val file = File(workDir, "page-${i.toString().padStart(COMIC_DIGITS, '0')}.img")
+                        zip.getInputStream(entry).use { input -> file.outputStream().use { input.copyTo(it) } }
+                        pictures += file
+                    }
+            }
+            if (pictures.isEmpty()) throw PdfToolException("No page pictures were found in ${archive.name}.")
+            imagesToPdf(pictures, output)
+        } catch (e: java.util.zip.ZipException) {
+            throw PdfToolException("${archive.name} is not a comic archive (.cbz).")
+        } finally {
+            pictures.forEach { it.delete() }
+        }
+    }
+
     /** A new PDF of [pages] empty A4 pages (1 to 500). */
     fun blankPdf(output: File, pages: Int) {
         require(pages in 1..MAX_BLANK_PAGES) { "Choose between 1 and $MAX_BLANK_PAGES pages." }
@@ -1101,6 +1125,8 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
         const val MAX_BLANK_PAGES = 500
+        const val COMIC_DIGITS = 5
+        val COMIC_PICTURE = Regex("""\.(jpe?g|png|webp)$""", RegexOption.IGNORE_CASE)
         const val MIN_STAMP = 5
         const val MAX_STAMP = 100
         const val PERCENT = 100f

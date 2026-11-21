@@ -149,6 +149,10 @@ class ToolsViewModel @Inject constructor(
                 }
             )
 
+            PdfTool.COMIC_TO_PDF -> listOf(
+                File(out, first.nameWithoutExtension + ".pdf").also { kit.comicToPdf(first, it, File(out, "pages")) }
+            )
+
             PdfTool.STAMP_IMAGE -> {
                 val pdfFile = input.firstOrNull { it.extension.equals("pdf", true) }
                     ?: throw PdfToolException("Choose a PDF and a picture.")

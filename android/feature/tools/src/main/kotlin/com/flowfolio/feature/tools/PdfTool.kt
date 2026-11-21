@@ -56,6 +56,7 @@ enum class PdfTool(
     HEALTH(R.string.tool_health, R.string.tool_health_sub, Glyph.Page),
     BLANK_PDF(R.string.tool_blank_pdf, R.string.tool_blank_pdf_sub, Glyph.Add, ToolInput.NONE),
     STAMP_IMAGE(R.string.tool_stamp_image, R.string.tool_stamp_image_sub, Glyph.Highlight, ToolInput.PDF_AND_IMAGE),
+    COMIC_TO_PDF(R.string.tool_comic_to_pdf, R.string.tool_comic_to_pdf_sub, Glyph.Cover, ToolInput.BOOK),
     LINK_ADDRESSES(R.string.tool_link_addresses, R.string.tool_link_addresses_sub, Glyph.GoTo);
 
     /** Whether the tool lets the reader choose pages. */

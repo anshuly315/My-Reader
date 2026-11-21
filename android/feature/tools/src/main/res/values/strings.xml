@@ -200,4 +200,6 @@
     <string name="tools_preview">View</string>
     <string name="tools_preview_close">Close</string>
     <string name="tools_no_preview">This kind of file has no preview here. Save it to open it in another app.</string>
+    <string name="tool_comic_to_pdf">Comic (CBZ) to PDF</string>
+    <string name="tool_comic_to_pdf_sub">Turn a comic archive into a PDF you can read here.</string>
 </resources>
