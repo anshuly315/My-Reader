@@ -1,0 +1,146 @@
+# Single source of truth for Android dependency versions (ADR-0005).
+# Every entry must also appear in docs/licenses.md.
+[versions]
+# Tools and AI (Brief-You / Stirling-PDF integration): PDFBox for Android and Google's on-device LLM runtime.
+pdfboxAndroid = "2.0.27.0"
+litertlm = "0.18.0"
+agp = "9.4.1"
+chaquopy = "17.2.0"
+ytdlp = "2026.10.26"
+kotlin = "2.4.21"
+ksp = "2.3.12"
+hilt = "2.60.1"
+composeBom = "2026.09.00"
+activityCompose = "1.13.0"
+lifecycle = "2.11.0"
+coreKtx = "1.19.1"
+junit4 = "4.13.2"
+# OCR tests on the JVM (ADR-0054): the same ONNX Runtime the app ships (OnnxRuntimeConventionPlugin, ADR-0059).
+onnxruntime = "1.28.0"
+androidxTestExtJunit = "1.3.0"
+androidxTestRunner = "1.7.0"
+espresso = "3.7.0"
+uiautomator = "2.4.0"
+haze = "2.0.1"
+# Google ML Kit on-device translation and language identification (owner-approved 2026-10-18, ADR-0018).
+mlkitTranslate = "17.0.3"
+mlkitLanguageId = "17.0.6"
+robolectric = "4.17"
+roborazzi = "1.76.0"
+# Baseline profile and macrobenchmark (owner-approved 2026-10-19, Phase 1 close-out).
+benchmark = "1.5.0"
+profileinstaller = "1.4.1"
+coroutines = "1.11.0"
+room = "2.8.5"
+datastore = "1.2.1"
+navigation = "2.10.2"
+hiltNavigation = "1.4.0"
+turbine = "1.2.1"
+spotless = "8.10.4"
+ktlint = "1.8.0"
+detekt = "1.23.8"
+# Phase 3 converter (owner-approved 2026-10-27): JSON for the IR and flowfolio.json; JNA and EPUBCheck for the
+# desktop JVM only (tests and the corpus harness), never in the app.
+serialization = "1.12.0"
+jna = "5.19.1"
+epubcheck = "5.4.0"
+# OCR tests on the desktop JVM (ADR-0054): Tesseract through JNA, :tools:convert tests only, never in the app.
+tess4j = "5.21.0"
+# Home-screen widgets (TM2, owner-approved 2026-11-12): Jetpack Glance, Apache-2.0, released 2026-08-26.
+glance = "1.2.0"
+
+
+# SDK levels (ADR-0006)
+minSdk = "29"
+compileSdk = "37"
+targetSdk = "37"
+
+[libraries]
+pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroid" }
+litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
+mlkit-translate = { module = "com.google.mlkit:translate", version.ref = "mlkitTranslate" }
+mlkit-language-id = { module = "com.google.mlkit:language-id", version.ref = "mlkitLanguageId" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigation" }
+
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+onnxruntime-jvm = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = "onnxruntime" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+epubcheck = { module = "org.w3c:epubcheck", version.ref = "epubcheck" }
+tess4j = { module = "net.sourceforge.tess4j:tess4j", version.ref = "tess4j" }
+
+
+# Gradle plugins as libraries, for build-logic convention plugins
+android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-gradlePlugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+ksp-gradlePlugin = { module = "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+hilt-gradlePlugin = { module = "com.google.dagger:hilt-android-gradle-plugin", version.ref = "hilt" }
+spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+detekt-gradlePlugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+androidx-room = { id = "androidx.room", version.ref = "room" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+chaquopy = { id = "com.chaquo.python", version.ref = "chaquopy" }
+
+# Convention plugins (build-logic)
+flowfolio-android-application = { id = "flowfolio.android.application" }
+flowfolio-android-compose = { id = "flowfolio.android.compose" }
+flowfolio-android-library = { id = "flowfolio.android.library" }
+flowfolio-jvm-library = { id = "flowfolio.jvm.library" }
+flowfolio-pdfium = { id = "flowfolio.pdfium" }
+flowfolio-onnxruntime = { id = "flowfolio.onnxruntime" }
+flowfolio-tesseract = { id = "flowfolio.tesseract" }
+flowfolio-hilt = { id = "flowfolio.hilt" }
+flowfolio-quality = { id = "flowfolio.quality" }

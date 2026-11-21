@@ -1,0 +1,75 @@
+package com.flowfolio.core.data
+
+import com.flowfolio.core.database.ShelfDao
+import com.flowfolio.core.database.ShelfEntity
+import com.flowfolio.core.model.Shelf
+import com.flowfolio.core.model.ShelfColor
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
+
+/** The reader's shelves (collections of books). */
+interface ShelfRepository {
+    /** Shelves in the order they were made, each with its books (most recently added first). */
+    fun observeShelves(): Flow<List<Shelf>>
+
+    /** Makes a shelf in [color] (null: the theme's) and returns its id. [name] is trimmed and must not be blank. */
+    suspend fun create(name: String, color: ShelfColor? = null): Long
+
+    suspend fun setColor(shelfId: Long, color: ShelfColor?)
+
+    suspend fun rename(shelfId: Long, name: String)
+
+    /** Removes the shelf; its books stay in the library. */
+    suspend fun delete(shelfId: Long)
+
+    /** Puts [bookId] on exactly [shelfIds], taking it off any others. */
+    suspend fun setShelves(bookId: String, shelfIds: Set<Long>)
+
+    /** Puts [bookIds] on [shelfId], in front of what is there; books already on it stay where they are. */
+    suspend fun addBooks(shelfId: Long, bookIds: List<String>)
+
+    /** Stands [bookIds] on [shelfId] in this order (drag and drop). */
+    suspend fun setOrder(shelfId: Long, bookIds: List<String>)
+}
+
+class DefaultShelfRepository @Inject constructor(
+    private val dao: ShelfDao,
+    private val clock: Clock,
+    @IoDispatcher private val io: CoroutineDispatcher
+) : ShelfRepository {
+    override fun observeShelves(): Flow<List<Shelf>> =
+        combine(dao.observeShelves(), dao.observeMemberships()) { shelves, rows ->
+            val byShelf = rows.groupBy({ it.shelfId }, { it.bookId })
+            shelves.map { s ->
+                Shelf(s.id, s.name, byShelf[s.id].orEmpty(), ShelfColor.entries.firstOrNull { it.name == s.color })
+            }
+        }
+
+    override suspend fun create(name: String, color: ShelfColor?): Long = withContext(io) {
+        require(name.isNotBlank()) { "shelf name is blank" }
+        dao.insert(ShelfEntity(name = name.trim(), createdAt = clock.now(), color = color?.name))
+    }
+
+    override suspend fun setColor(shelfId: Long, color: ShelfColor?) = withContext(io) {
+        dao.setColor(shelfId, color?.name)
+    }
+
+    override suspend fun rename(shelfId: Long, name: String) = withContext(io) {
+        require(name.isNotBlank()) { "shelf name is blank" }
+        dao.rename(shelfId, name.trim())
+    }
+
+    override suspend fun delete(shelfId: Long) = withContext(io) { dao.delete(shelfId) }
+
+    override suspend fun setShelves(bookId: String, shelfIds: Set<Long>) =
+        withContext(io) { dao.setShelves(bookId, shelfIds, clock.now()) }
+
+    override suspend fun addBooks(shelfId: Long, bookIds: List<String>) =
+        withContext(io) { dao.addBooks(shelfId, bookIds, clock.now()) }
+
+    override suspend fun setOrder(shelfId: Long, bookIds: List<String>) =
+        withContext(io) { dao.setOrder(shelfId, bookIds) }
+}

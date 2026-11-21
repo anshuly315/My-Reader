@@ -1,0 +1,58 @@
+# Builds the reader app's debug APK in the cloud so nothing has to be installed locally.
+# Run it from the Actions tab (Build APK -> Run workflow); the APK appears under "Artifacts" on the finished run.
+name: Build APK
+
+on:
+  push:
+    branches: [flowfolio-ai-reader]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Chaquopy needs a Python 3.12 on the build machine (it pip-installs yt-dlp for :core:extract).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install the NDK and CMake the OCR build needs
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;4.1.2" >/dev/null
+      - name: Unit tests of the new modules
+        run: ./gradlew :core:ai:testDebugUnitTest :core:pdftools:testDebugUnitTest --no-daemon
+      - name: Build the APK
+        run: ./gradlew :app:assembleEssentialDebug --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: reader-debug-apk
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            android/**/build/reports/
+            android/**/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

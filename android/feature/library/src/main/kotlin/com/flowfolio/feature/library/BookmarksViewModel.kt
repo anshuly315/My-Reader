@@ -1,0 +1,194 @@
+package com.flowfolio.feature.library
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.flowfolio.core.data.BookmarkRepository
+import com.flowfolio.core.data.LibraryRepository
+import com.flowfolio.core.data.ReaderRepository
+import com.flowfolio.core.data.flow.ReadingViews
+import com.flowfolio.core.designsystem.CoverSpot
+import com.flowfolio.core.model.Book
+import com.flowfolio.core.model.BookFormat
+import com.flowfolio.core.model.Bookmark
+import com.flowfolio.core.model.BookmarkColor
+import com.flowfolio.core.model.LibrarySort
+import com.flowfolio.core.model.OutlineEntry
+import com.flowfolio.core.model.chapterOfLocator
+import com.flowfolio.core.model.pageLabel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** A ribbon in the Bookmarks tab: the bookmark, its book, and where it is ([chapter], printed page [label]). */
+data class BookmarkItem(val bookmark: Bookmark, val book: Book, val chapter: String?, val label: String)
+
+/** A book on the Bookmarks tab: its ribbons, colours and newest ribbon, for one card per book (owner, 2026-11-07). */
+data class BookmarkBook(val book: Book, val colours: List<BookmarkColor>, val latest: BookmarkItem, val count: Int)
+
+data class BookmarksUiState(
+    val loading: Boolean = true,
+    /** The tab: one entry per book with ribbons, newest ribbon first. */
+    val books: List<BookmarkBook> = emptyList(),
+    /** The ribbons shown (newest first), after the colour filter. */
+    val items: List<BookmarkItem> = emptyList(),
+    /** How many ribbons there are in all, and in how many books. */
+    val total: Int = 0,
+    val bookCount: Int = 0,
+    /** The colours in use, for the filter chips; null [filter] shows them all. */
+    val colours: List<BookmarkColor> = emptyList(),
+    val filter: BookmarkColor? = null,
+    /** The book this page is for (a book's Bookmarks page), or null for the Bookmarks tab. */
+    val book: Book? = null
+)
+
+/** What the Bookmarks tab can ask for. */
+data class BookmarkActions(
+    val onOpen: (BookmarkItem, CoverSpot) -> Unit = { _, _ -> },
+    val onRecolour: (BookmarkItem, BookmarkColor) -> Unit = { _, _ -> },
+    val onRemove: (BookmarkItem) -> Unit = {},
+    val onFilter: (BookmarkColor?) -> Unit = {},
+    /** Open a book's own Bookmarks page (the tab's card); unused on a book's page. */
+    val onOpenBook: (Book) -> Unit = {},
+    /** Back, on a book's own Bookmarks page (none on the tab). */
+    val onBack: (() -> Unit)? = null,
+    /** Select mode (owner, 2026-10-22); null where ribbons cannot be selected. */
+    val selection: com.flowfolio.core.designsystem.Selection? = null,
+    val onDeleteChosen: () -> Unit = {}
+)
+
+/**
+ * Where a book's ribbons are: its outline (for the chapter) and the printed labels of the marked pages. Read once per
+ * book from the PDF; a book that cannot be opened has neither.
+ */
+private class BookIndex(
+    val outline: List<OutlineEntry>,
+    val labels: Map<Int, String>,
+    /** An EPUB's chapter titles in reading order, for naming ribbons by their locator (ADR-0040). */
+    val titles: List<String?> = emptyList()
+)
+
+/** The Bookmarks tab: every ribbon in the library, newest first, filterable by colour. */
+@HiltViewModel
+class BookmarksViewModel @Inject constructor(
+    saved: SavedStateHandle,
+    private val bookmarks: BookmarkRepository,
+    library: LibraryRepository,
+    private val reader: ReaderRepository,
+    private val views: ReadingViews = ReadingViews.ShowAll
+) : ViewModel() {
+    private val onlyBook: String? = saved[ARG_BOOK_ID]
+    private val filter = MutableStateFlow<BookmarkColor?>(null)
+    private val indexes = MutableStateFlow<Map<String, BookIndex>>(emptyMap())
+
+    /** The marked pages each book was indexed for; a new page re-reads its label. */
+    private val indexedPages = mutableMapOf<String, Set<Int>>()
+
+    val uiState: StateFlow<BookmarksUiState> = combine(
+        views.bookmarks(bookmarks.observeAll()),
+        library.observeBooks(LibrarySort.RECENT),
+        indexes,
+        filter
+    ) { marks, books, index, chosen ->
+        val byId = books.associateBy { it.id }
+        val all = marks.filter { onlyBook == null || it.bookId == onlyBook }
+            .mapNotNull { m -> byId[m.bookId]?.let { item(m, it, index[m.bookId]) } }
+        all.groupBy { it.book.id }.forEach { (id, items) -> indexLater(id, items.map { it.bookmark.page }.toSet()) }
+        val colours = BookmarkColor.entries.filter { c -> all.any { it.bookmark.color == c } }
+        val shown = chosen?.takeIf { it in colours }
+        BookmarksUiState(
+            loading = false,
+            books = all.groupBy { it.book.id }.map { (id, items) ->
+                BookmarkBook(
+                    book = byId.getValue(id),
+                    colours = BookmarkColor.entries.filter { c -> items.any { it.bookmark.color == c } },
+                    latest = items.maxBy { it.bookmark.createdAtMillis },
+                    count = items.size
+                )
+            }.sortedByDescending { it.latest.bookmark.createdAtMillis },
+            items = if (shown == null) all else all.filter { it.bookmark.color == shown },
+            total = all.size,
+            bookCount = all.map { it.book.id }.distinct().size,
+            colours = colours,
+            filter = shown,
+            book = onlyBook?.let { byId[it] }
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), BookmarksUiState())
+
+    fun setFilter(colour: BookmarkColor?) {
+        filter.value = colour
+    }
+
+    fun recolour(item: BookmarkItem, colour: BookmarkColor) =
+        viewModelScope.launch { bookmarks.setColor(item.bookmark.id, colour) }
+
+    fun remove(item: BookmarkItem) = viewModelScope.launch { bookmarks.remove(item.bookmark.id) }
+
+    /** Select mode's Delete, after its confirmation. */
+    fun removeAll(ids: Collection<Long>) = viewModelScope.launch { ids.forEach { bookmarks.remove(it) } }
+
+    /** Select mode's Delete on the tab: every ribbon of [bookIds], after its confirmation (owner, 2026-11-07). */
+    fun removeBooks(bookIds: Collection<String>) = viewModelScope.launch {
+        bookmarks.observeAll().first().filter { it.bookId in bookIds }.forEach { bookmarks.remove(it.id) }
+    }
+
+    /** Makes the ribbon's page the reading position, then calls [then] (to open the reader there). */
+    fun open(item: BookmarkItem, then: () -> Unit) = viewModelScope.launch {
+        val locator = item.bookmark.locator
+        if (locator != null) {
+            reader.saveEpubPosition(item.book.id, locator, item.bookmark.page)
+        } else {
+            reader.saveProgress(item.book.id, item.bookmark.page)
+        }
+        then()
+    }
+
+    private fun item(mark: Bookmark, book: Book, index: BookIndex?): BookmarkItem {
+        val chapter = chapterOfLocator(mark.locator)?.let { index?.titles?.getOrNull(it) }
+            ?: index?.outline?.let { outline ->
+                outline.filter { it.pageIndex in 0..mark.page }.maxByOrNull { it.pageIndex }?.title
+            }
+        // A Dynamic Flow ribbon's page is a page of the flow as last laid out, not a printed one: it shows none.
+        val flow = mark.locator != null && book.format == BookFormat.PDF
+        val label = if (flow) "" else index?.labels?.get(mark.page) ?: book.pageLabel(mark.page)
+        return BookmarkItem(mark, book, chapter, label)
+    }
+
+    /** Reads a book's outline and the labels of its marked [pages], off the main thread; the cards fill in after. */
+    private fun indexLater(bookId: String, pages: Set<Int>) {
+        if (indexedPages[bookId]?.containsAll(pages) == true) return
+        indexedPages[bookId] = pages + indexedPages[bookId].orEmpty()
+        viewModelScope.launch {
+            val index = runCatching {
+                // A PDF's Dynamic Flow ribbons are named by its chapters (ADR-0045).
+                val flowTitles = reader.epubChapterTitles(bookId)
+                reader.open(bookId).document.use { doc ->
+                    BookIndex(
+                        doc.outline(),
+                        pages.mapNotNull { p ->
+                            doc.pageLabel(p)?.let { p to it }
+                        }.toMap(),
+                        flowTitles
+                    )
+                }
+            }.getOrElse { BookIndex(emptyList(), emptyMap(), reader.epubChapterTitles(bookId)) }
+            indexes.update { all ->
+                val before = all[bookId]
+                all + (bookId to BookIndex(index.outline, before?.labels.orEmpty() + index.labels, index.titles))
+            }
+        }
+    }
+
+    companion object {
+        /** Optional: show only this book's ribbons. */
+        const val ARG_BOOK_ID = "bookId"
+        private const val STOP_TIMEOUT_MS = 5_000L
+    }
+}

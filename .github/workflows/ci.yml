@@ -1,0 +1,221 @@
+# CI for the FlowFolio monorepo (ADR-0008).
+# Path-aware: the Android job runs only when its files change. The Python converter server was retired
+# (ADR-0043); the conversion engine and its JVM tests are part of the Android build (ADR-0044).
+# `ci-gate` is the single required status check.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.diff.outputs.android }}
+      base: ${{ steps.diff.outputs.base }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: diff
+        name: Compute changed areas
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base="${PR_BASE:-$PUSH_BEFORE}"
+          if [ "$EVENT" = "workflow_dispatch" ] || [ -z "$base" ] \
+             || [ "$base" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "No usable base; running everything."
+            { echo "android=true"; echo "base="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$base" "$GITHUB_SHA")
+          echo "$files"
+          all=false; echo "$files" | grep -q '^\.github/workflows/' && all=true
+          android=$all; echo "$files" | grep -q '^android/' && android=true
+          { echo "android=$android"; echo "base=$base"; } >> "$GITHUB_OUTPUT"
+
+  commits:
+    name: Conventional commits
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check commit subjects
+        env:
+          BASE: ${{ needs.changes.outputs.base }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # A manual run (workflow_dispatch) gets no base, and an empty base would walk the whole
+          # history -- which starts with GitHub's own "Initial commit" and so could never pass. The
+          # history was gated commit by commit when it was pushed, so check only the head commit.
+          range="$HEAD_SHA"
+          if [ -n "$BASE" ]; then
+            range="$BASE..$HEAD_SHA"
+          elif git rev-parse -q --verify "$HEAD_SHA^" >/dev/null 2>&1; then
+            range="$HEAD_SHA^..$HEAD_SHA"
+          fi
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: .+'
+          bad=$(git log --no-merges --format='%s' "$range" | grep -Ev "$pattern" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Commits not following Conventional Commits:"; echo "$bad"; exit 1
+          fi
+          echo "All commit subjects conform."
+
+  android:
+    name: Android
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Chaquopy pip-installs yt-dlp while building :core:extract and needs a Python of the version it targets
+      # (ADR-0047). The runner has no 3.12 of its own, so one is put on PATH here.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Lint, test, build
+        # testDebugUnitTest also runs the JVM modules' tests, the converter's included (EPUBCheck on the robustness
+        # PDFs through the Linux PDFium build).
+        # The app has two editions; its debug variant, tests and lint are the Essential edition's (`essentialDebug`).
+        run: ./gradlew spotlessCheck detekt lintDebug :app:lintEssentialDebug testDebugUnitTest :app:testEssentialDebugUnitTest assembleDebug --continue
+      - name: Upload debug APK
+        # Build output, not a check: a full artifact quota must not fail a build whose checks passed (2026-10-28).
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flowfolio-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          # Kept a week, not GitHub's 90 days: 90 days of APKs filled the account's artifact storage (2026-10-27).
+          retention-days: 7
+      - name: Upload reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-reports
+          path: |
+            android/app/build/reports/
+            android/app/build/test-results/
+            android/tools/convert/build/reports/
+            android/tools/convert/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  corpus:
+    # The converter's quality gate (Phase 3 M3 and Phase 7 M3): the CC BY books of the corpus, converted on the JVM
+    # and checked against samples/golden/ (EPUBCheck, the sidecar schema, the baselines and the hand-labelled pages),
+    # plus the scanned-books gate (OcrCorpusTest: word recall and CER against proofread ground truth). The CC BY-NC-SA
+    # books stay a local check (CLAUDE.md, known issue 10).
+    name: Converter corpus
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    # The scanned pages come from Wikisource, which rate-limits; the first run is slow, later runs hit the cache.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Restore the corpus
+        # Keyed on the manifest: its pinned hashes change whenever a book does.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: samples/corpus/cache
+          key: corpus-cc-by-${{ hashFiles('samples/corpus/manifest.yaml') }}
+      - name: Fetch the CC BY books
+        # Skips books already cached with the right hash; fails on a hash mismatch.
+        run: python3 -I tools/corpus/fetch_corpus.py --only physics,high-school-statistics,introduction-intellectual-property
+      - name: Restore the OCR scans
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: samples/corpus/cache/ocr
+          key: corpus-ocr-${{ hashFiles('samples/golden/ocr/manifest.txt') }}
+      - name: Fetch the OCR pages
+        # The scanned corpus (ADR-0054); skips pages already cached with the right hash.
+        run: python3 -I tools/corpus/fetch_ocr_corpus.py
+      - name: Fetch the OCR models
+        # The phone's own models, from FlowFolio's mirror and checked against the hashes OcrPack pins: tessdata_best
+        # `ara` (12.6 MB), not Ubuntu's smaller tesseract-ocr-ara, so the gate measures what readers get.
+        run: |
+          mkdir -p samples/corpus/cache/ocr-models
+          cd samples/corpus/cache/ocr-models
+          base=https://github.com/mgmourad/FlowFolio/releases/download/ocr-models-v1
+          for f in PP-OCRv6_det_small.onnx PP-OCRv6_rec_small.onnx arabic_PP-OCRv5_rec_mobile.onnx ara.traineddata; do
+            [ -f "$f" ] || curl -fsSLO "$base/$f"
+          done
+          sha256sum -c - <<'SUMS'
+          090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f  PP-OCRv6_det_small.onnx
+          6f327246b50388f3c176ae304bd95767ea6dc0c9ae92153ef8cbe210b3c14884  PP-OCRv6_rec_small.onnx
+          c1192e632d0baa9146ae5b756a0e635e3dc63c1733737ebfd1629e87144e9295  arabic_PP-OCRv5_rec_mobile.onnx
+          ab9d157d8e38ca00e7e39c7d5363a5239e053f5b0dbdb3167dde9d8124335896  ara.traineddata
+          SUMS
+      - name: Install Tesseract for OCR tests
+        # tess4j calls libtesseract through JNA (ADR-0054); the model comes from the mirror above.
+        run: sudo apt-get update && sudo apt-get install -y libtesseract-dev
+      - name: Convert and check against the baselines
+        working-directory: android
+        env:
+          # Absolute: Gradle runs tests in the module's folder, where a relative path silently pointed nowhere and
+          # every OCR test skipped (found 2026-11-12).
+          FLOWFOLIO_OCR_PAGES: ${{ github.workspace }}/samples/corpus/cache/ocr
+          FLOWFOLIO_OCR_MODELS: ${{ github.workspace }}/samples/corpus/cache/ocr-models
+          FLOWFOLIO_TESSDATA: ${{ github.workspace }}/samples/corpus/cache/ocr-models
+        run: ./gradlew :tools:convert:test --tests "*CorpusTest*" --tests "*OcrCorpusTest*"
+      - name: Upload the corpus report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: corpus-reports
+          path: |
+            android/tools/convert/build/reports/
+            android/tools/convert/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [changes, commits, android, corpus]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) echo "::error::A job ended with '$r'"; exit 1 ;; esac
+          done

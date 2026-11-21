@@ -1,0 +1,402 @@
+@file:Suppress("TooManyFunctions")
+
+package com.flowfolio.feature.reader
+
+import android.content.ComponentCallbacks2
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.flowfolio.core.designsystem.FlowFolio
+import com.flowfolio.core.designsystem.color
+import com.flowfolio.core.model.Bookmark
+import com.flowfolio.core.pagecurl.config.PageCurlConfig
+import com.flowfolio.core.pagecurl.config.rememberPageCurlConfig
+import com.flowfolio.core.pagecurl.page.PageCurl
+import com.flowfolio.core.pagecurl.page.PageCurlState
+import com.flowfolio.core.pagecurl.page.rememberPageCurlState
+import com.flowfolio.feature.reader.layout.ReaderLayout
+import com.flowfolio.feature.reader.layout.Spreads
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/** Original-mode PDF reader: page curl, single page or two-page spread (Phase 1, milestone 3). */
+@Composable
+fun ReaderScreen(
+    onBack: () -> Unit,
+    viewModel: ReaderViewModel = hiltViewModel(),
+    bookmarks: ReaderBookmarksViewModel = hiltViewModel(),
+    readingTime: ReadingTimeViewModel = hiltViewModel(),
+    direction: ReaderSettingsViewModel = hiltViewModel()
+) {
+    val rightToLeft by direction.rightToLeft.collectAsStateWithLifecycle()
+    val userSettings by direction.settings.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val images by viewModel.pageImages.collectAsStateWithLifecycle()
+    val navigation by viewModel.navigation.collectAsStateWithLifecycle()
+    ReaderDisplayEffects(userSettings.keepScreenOn, userSettings.readerBrightness)
+    TrimMemoryEffect(viewModel::onTrimMemory)
+    NarratorNotificationPermission(viewModel)
+    // System Back closes the book the same way as the Back button (open panels catch it first).
+    BackHandler(onBack = onBack)
+    // Time read (slice 6): a session runs while the reader is in front, and page turns keep it going.
+    LifecycleResumeEffect(readingTime) {
+        readingTime.onResume()
+        onPauseOrDispose { readingTime.onPause() }
+    }
+    val unit = (state as? ReaderState.Ready)?.unit
+    LaunchedEffect(unit) { if (unit != null) readingTime.onActivity() }
+
+    val tone = (state as? ReaderState.Ready)?.tone ?: PageTone.PRINTED
+    val marks = placedRibbons(viewModel, bookmarks)
+    val readMillis by readingTime.readMillis.collectAsStateWithLifecycle()
+    CompositionLocalProvider(
+        LocalReadMillis provides readMillis,
+        LocalTone provides tone,
+        LocalRibbons provides marks.associate { it.page to it.color },
+        LocalRightToLeft provides rightToLeft
+    ) {
+        PaperRevealHost(FlowFolio.palette.dark, state, images) {
+            StatusBarForPaper(LocalPaperReveal.current?.fromTone ?: tone)
+            Box(Modifier.fillMaxSize()) {
+                ReaderRoot(state, images, navigation, viewModel, bookmarks, marks, onBack)
+                if (state is ReaderState.Ready && READER_DEMO !in userSettings.seenGuides && userSettings.tipsEnabled) {
+                    ReaderDemo(
+                        onDone = { direction.markGuideSeen(READER_DEMO) },
+                        onNeverShow = { direction.disableTips(READER_DEMO) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The book's ribbons on the pages now showing them: an EPUB's follow their text through every layout, and are saved on
+ * their new pages once the layout is final (ADR-0040).
+ */
+@Composable
+private fun placedRibbons(viewModel: ReaderViewModel, bookmarks: ReaderBookmarksViewModel): List<Bookmark> {
+    val stored by bookmarks.bookmarks.collectAsStateWithLifecycle()
+    val revision by viewModel.layoutRevision.collectAsStateWithLifecycle()
+    var placed by remember { mutableStateOf(stored) }
+    LaunchedEffect(stored, revision) {
+        placed = viewModel.placeRibbons(stored)
+        if (viewModel.pagesFinal) bookmarks.syncPages(stored, placed)
+    }
+    return placed
+}
+
+/**
+ * Narrator Mode's own notification player needs Android 13's notification permission (the phone's media player does
+ * not): asked the first time narration starts, and not again in this visit if the reader says no.
+ */
+@Composable
+private fun NarratorNotificationPermission(viewModel: ReaderViewModel) {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+    val context = LocalContext.current
+    val narrating by viewModel.narrating.collectAsStateWithLifecycle()
+    var asked by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    // Granted: post FlowFolio's own player, which Android dropped while the permission was missing.
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) NarrationHub.refresh() }
+    LaunchedEffect(narrating) {
+        val permission = android.Manifest.permission.POST_NOTIFICATIONS
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (narrating && !granted && !asked) {
+            asked = true
+            ask.launch(permission)
+        }
+    }
+}
+
+@Composable
+private fun ReaderDisplayEffects(keepScreenOn: Boolean, brightness: Float) {
+    val view = LocalView.current
+    DisposableEffect(view, keepScreenOn) {
+        val prev = view.keepScreenOn
+        view.keepScreenOn = keepScreenOn
+        onDispose { view.keepScreenOn = prev }
+    }
+    val context = LocalContext.current
+    DisposableEffect(context, brightness) {
+        val window = (context as? android.app.Activity)?.window
+        if (window != null) {
+            val attrs = window.attributes
+            attrs.screenBrightness = if (brightness >= 0f) {
+                brightness.coerceIn(0.05f, 1f)
+            } else {
+                android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
+            window.attributes = attrs
+        }
+        onDispose {
+            val w = (context as? android.app.Activity)?.window
+            if (w != null) {
+                val attrs = w.attributes
+                attrs.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                w.attributes = attrs
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReaderRoot(
+    state: ReaderState,
+    images: Map<Int, ImageBitmap>,
+    navigation: BookNavigation,
+    viewModel: ReaderViewModel,
+    bookmarks: ReaderBookmarksViewModel,
+    marks: List<Bookmark>,
+    onBack: () -> Unit
+) {
+    val dark = FlowFolio.palette.dark
+    BoxWithConstraints(Modifier.fillMaxSize().background(PAPER)) {
+        val viewport = Viewport(constraints.maxWidth, constraints.maxHeight, maxWidth.value, maxHeight.value, dark)
+        LaunchedEffect(viewport) { viewModel.onViewport(viewport) }
+
+        when (val s = state) {
+            ReaderState.Loading -> RelayoutHourglass(visible = true)
+            is ReaderState.NeedsPassword -> PasswordPrompt(s.wrongPassword, viewModel::submitPassword, onBack)
+            is ReaderState.Failed -> ReaderNotice(s, onBack)
+            is ReaderState.Ready -> ReadyReader(s, images, navigation, viewModel, bookmarks, marks, onBack)
+        }
+    }
+}
+
+@Composable
+internal fun SinglePageReader(
+    state: ReaderState.Ready,
+    images: Map<Int, ImageBitmap>,
+    narrating: Boolean = false,
+    onUnitShown: (Int) -> Unit
+) {
+    val curl = rememberReaderCurlState(state.unit)
+    val latestImages by rememberUpdatedState(images)
+    ReportUnit(curl, onUnitShown)
+    FollowJumps(curl, state.unit, narrating)
+    PageCurl(
+        count = state.unitCount,
+        state = curl,
+        gradientShadow = true,
+        config = swipeAnywhereConfig(),
+        modifier = Modifier.fillMaxSize().testTag(ReaderTestTags.PAGE),
+        // A real book: the back of the turning sheet is the next page (the other side of the same leaf), not a tinted
+        // mirror of the front. Null (the last page) falls back to the translucent mirror, as there is no next page.
+        backPage = { unit -> latestImages[unit + 1] }
+    ) { page ->
+        // Single page: bound on the left like a book, with a lighter gutter than an open spread.
+        PagePane(page, images[page], Alignment.Center, Spine.LEFT, SINGLE_PAGE_GUTTER_STRENGTH)
+    }
+}
+
+/**
+ * Book spread: the left page is static, the right half is the curl. Each curl "page" is a spread; the back of the
+ * turning sheet shows the next spread's left page (vendored pagecurl change, ADR-0011). Swipes work on either page:
+ * on the right page the sheet follows the finger; on the left page a swipe right turns back and a swipe left turns
+ * forward (animated), and a tap on the left page turns back.
+ */
+@Composable
+internal fun SpreadReader(
+    state: ReaderState.Ready,
+    images: Map<Int, ImageBitmap>,
+    narrating: Boolean = false,
+    onUnitShown: (Int) -> Unit
+) {
+    val curl = rememberReaderCurlState(state.unit)
+    val scope = rememberCoroutineScope()
+    val latestImages by rememberUpdatedState(images)
+    ReportUnit(curl, onUnitShown)
+    FollowJumps(curl, state.unit, narrating)
+    Row(Modifier.fillMaxSize().testTag(ReaderTestTags.PAGE)) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .pointerInput(curl) { detectTapGestures { scope.launch { curl.prev() } } }
+                .leftPageDrag(curl, scope)
+        ) {
+            val left by remember(curl, state.pageCount, state.coverAlone) {
+                derivedStateOf { Spreads.leftOf(leftPaneUnit(curl), state.pageCount, state.coverAlone) }
+            }
+            PagePane(left, images[left], Alignment.CenterEnd, Spine.RIGHT)
+        }
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            PageCurl(
+                count = state.unitCount,
+                state = curl,
+                gradientShadow = true,
+                config = swipeAnywhereConfig(rightPageOfSpread = true),
+                modifier = Modifier.fillMaxSize(),
+                backPage = { unit ->
+                    latestImages[Spreads.leftOf(unit + 1, state.pageCount, state.coverAlone)]
+                }
+            ) { unit ->
+                val right = Spreads.rightOf(unit, state.pageCount, state.coverAlone)
+                PagePane(right, images[right], Alignment.CenterStart, Spine.LEFT)
+            }
+        }
+    }
+}
+
+/**
+ * Swipe anywhere on the page (iOS Books): dragging left turns forward, dragging right turns back, the page follows the
+ * finger, and releasing even slightly past the start completes the turn. A single page taps back on its left half and
+ * forward on its right half; the right page of a spread taps forward anywhere (its left page taps back).
+ */
+@Composable
+private fun swipeAnywhereConfig(rightPageOfSpread: Boolean = false): PageCurlConfig = rememberPageCurlConfig(
+    backPageColor = PAPER,
+    dragInteraction = PageCurlConfig.GestureDragInteraction(),
+    tapBackwardEnabled = !rightPageOfSpread,
+    tapInteraction = if (rightPageOfSpread) {
+        PageCurlConfig.TargetTapInteraction(forward = PageCurlConfig.TargetTapInteraction.Config(Rect(0f, 0f, 1f, 1f)))
+    } else {
+        PageCurlConfig.TargetTapInteraction()
+    }
+).also {
+    // Right to left the book is drawn mirrored; the back of the turning sheet must not be.
+    it.flipBackPage = LocalMirroredPages.current
+}
+
+/**
+ * The curl state for this layout, created once from the unit the reader opened at. pagecurl keys its state on
+ * initialCurrent, so passing the live unit would replace the state on every turn and strand its tap handler on a
+ * stale copy (taps after the first stopped turning). The layout key above recreates it on fold/unfold.
+ */
+@Composable
+private fun rememberReaderCurlState(unit: Int): PageCurlState {
+    val openedAt = remember { unit }
+    return rememberPageCurlState(initialCurrent = openedAt)
+}
+
+/**
+ * Contents, Go to page and the scrubber move the ViewModel's unit; the curl snaps to it without animating.
+ * When Narrator Mode advances to the next unit, the page curls forward and plays the page turn sound.
+ */
+@Composable
+private fun FollowJumps(curl: PageCurlState, unit: Int, narrating: Boolean) {
+    val isNarrating by rememberUpdatedState(narrating)
+    LaunchedEffect(unit) {
+        if (curl.current != unit) {
+            if (isNarrating && unit == curl.current + 1) {
+                curl.next()
+                if (curl.current != unit) {
+                    curl.onTurn?.invoke(true)
+                    curl.snapTo(unit)
+                }
+            } else {
+                if (isNarrating && unit > curl.current) curl.onTurn?.invoke(true)
+                curl.snapTo(unit)
+            }
+        }
+    }
+}
+
+/** Reports each unit the curl settles on, and plays the page flip as each turn begins (ADR-0025). */
+@Composable
+private fun ReportUnit(curl: PageCurlState, onUnitShown: (Int) -> Unit) {
+    val callback by rememberUpdatedState(onUnitShown)
+    LaunchedEffect(curl) { snapshotFlow { curl.current }.collect { callback(it) } }
+    val sounds = LocalReaderSounds.current
+    DisposableEffect(curl, sounds) {
+        curl.onTurn = sounds?.let { s -> { forward: Boolean -> s.turn(forward) } }
+        onDispose { curl.onTurn = null }
+    }
+}
+
+/**
+ * One page image at its exact rendered size (no scaling), on paper, with its ribbon if the page is bookmarked.
+ * Missing images show blank paper.
+ */
+@Composable
+internal fun PagePane(
+    page: Int,
+    image: ImageBitmap?,
+    alignment: Alignment,
+    spine: Spine,
+    shadingStrength: Float = 1f,
+    modifier: Modifier = Modifier.fillMaxSize()
+) {
+    val ribbon = LocalRibbons.current[page]
+    val mirrored = LocalMirroredPages.current
+    Box(modifier.background(PAPER).pageShading(spine, shadingStrength, isDarkPaper), contentAlignment = alignment) {
+        if (image != null) {
+            Box(Modifier.reportBounds(page).graphicsLayer { scaleX = if (mirrored) -1f else 1f }) {
+                val highlights = LocalHighlights.current[page].orEmpty()
+                val dark = isDarkPaper
+                Image(
+                    image,
+                    contentDescription = null,
+                    contentScale = ContentScale.None,
+                    modifier = Modifier.drawWithContent {
+                        drawContent()
+                        drawHighlights(highlights, dark)
+                    }
+                )
+                ribbon?.let {
+                    Ribbon(
+                        it.color,
+                        Modifier.align(Alignment.TopEnd).offset(y = -RIBBON_RISE).padding(end = RIBBON_INSET)
+                    )
+                }
+            }
+        }
+    }
+}
+
+internal const val SWIPE_THRESHOLD_PX = 24f
+private val RIBBON_INSET = 26.dp
+private val RIBBON_RISE = 6.dp
+private const val SINGLE_PAGE_GUTTER_STRENGTH = 0.6f
+internal val EDGE_GUARD_WIDTH = 32.dp
+internal val EDGE_GUARD_HEIGHT = 200.dp

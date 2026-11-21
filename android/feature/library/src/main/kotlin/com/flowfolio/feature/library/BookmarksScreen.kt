@@ -1,0 +1,697 @@
+@file:Suppress("TooManyFunctions")
+
+package com.flowfolio.feature.library
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.flowfolio.core.designsystem.BookColors
+import com.flowfolio.core.designsystem.CoverSpot
+import com.flowfolio.core.designsystem.FlatCover
+import com.flowfolio.core.designsystem.FlowFolio
+import com.flowfolio.core.designsystem.FlowFolioCard
+import com.flowfolio.core.designsystem.FlowFolioChip
+import com.flowfolio.core.designsystem.FlowFolioGlyph
+import com.flowfolio.core.designsystem.FlowFolioIconButton
+import com.flowfolio.core.designsystem.FlowFolioMenu
+import com.flowfolio.core.designsystem.FlowFolioMenuDivider
+import com.flowfolio.core.designsystem.FlowFolioType
+import com.flowfolio.core.designsystem.Glyph
+import com.flowfolio.core.designsystem.LocalBookOpener
+import com.flowfolio.core.designsystem.LocalChromePadding
+import com.flowfolio.core.designsystem.Motion
+import com.flowfolio.core.designsystem.ScrollToTopOnTab
+import com.flowfolio.core.designsystem.card
+import com.flowfolio.core.designsystem.chromeStart
+import com.flowfolio.core.designsystem.color
+import com.flowfolio.core.designsystem.coverSpot
+import com.flowfolio.core.designsystem.rememberSelection
+import com.flowfolio.core.designsystem.reveal
+import com.flowfolio.core.designsystem.softShadow
+import com.flowfolio.core.model.Book
+import com.flowfolio.core.model.BookmarkColor
+
+/**
+ * The mock's Bookmarks tab (`#s-bookmarks`): one card per book with ribbons (its title, author and the ribbon colours
+ * in it), newest ribbon first. Tap a card to open that book's ribbons; there, each ribbon is a card (tap to open the
+ * book there, swipe right to recolour, left to remove). The colour filter lives on the book's page (owner, 2026-11-07).
+ */
+@Composable
+fun BookmarksScreen(
+    onRead: (Book) -> Unit,
+    onBack: (() -> Unit)? = null,
+    onOpenBook: (Book) -> Unit = {},
+    viewModel: BookmarksViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val opener = LocalBookOpener.current
+    val selection = rememberSelection()
+    var confirmBulk by remember { mutableStateOf(false) }
+    BookmarksContent(
+        state,
+        BookmarkActions(
+            onOpen = { item, spot ->
+                viewModel.open(item) {
+                    val show = { onRead(item.book) }
+                    opener?.open(spot, show) ?: show()
+                }
+            },
+            onRecolour = viewModel::recolour,
+            onRemove = viewModel::remove,
+            onFilter = viewModel::setFilter,
+            onOpenBook = onOpenBook,
+            onBack = onBack,
+            selection = selection,
+            onDeleteChosen = { confirmBulk = true }
+        )
+    )
+    if (confirmBulk) {
+        val n = selection.chosen.size
+        val perBook = state.book != null
+        BulkDeleteDialog(
+            pluralStringResource(
+                if (perBook) R.plurals.delete_ribbons_title else R.plurals.delete_ribbon_books_title,
+                n,
+                n
+            ),
+            stringResource(R.string.delete_cannot_undo),
+            onConfirm = {
+                if (perBook) {
+                    viewModel.removeAll(selection.chosen.map(String::toLong))
+                } else {
+                    viewModel.removeBooks(selection.chosen)
+                }
+                selection.done()
+                confirmBulk = false
+            },
+            onDismiss = { confirmBulk = false }
+        )
+    }
+    BackHandler(selection.active) { selection.done() }
+}
+
+@Suppress("LongMethod")
+@Composable
+fun BookmarksContent(state: BookmarksUiState, actions: BookmarkActions) {
+    val chrome = LocalChromePadding.current
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val perBook = state.book != null
+    val filteredBooks = remember(state.books, query) {
+        val q = query.trim()
+        if (q.isEmpty()) {
+            state.books
+        } else {
+            state.books.mapNotNull { entry ->
+                val score = maxOf(Fuzzy.score(q, entry.book.title), Fuzzy.score(q, entry.book.author))
+                if (score > 0) entry to score else null
+            }.sortedByDescending { it.second }.map { it.first }
+        }
+    }
+    val filteredItems = remember(state.items, query) {
+        val q = query.trim()
+        if (q.isEmpty()) {
+            state.items
+        } else {
+            state.items.mapNotNull { item ->
+                val score = maxOf(
+                    Fuzzy.score(q, item.book.title),
+                    Fuzzy.score(q, item.book.author),
+                    Fuzzy.score(q, item.chapter),
+                    Fuzzy.score(q, item.label),
+                    Fuzzy.score(q, (item.bookmark.page + 1).toString())
+                )
+                if (score > 0) item to score else null
+            }.sortedByDescending { it.second }.map { it.first }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().chromeStart().testTag(LibraryTestTags.BOOKMARKS)) {
+        val twoColumns = maxWidth - GRID_SIDES * 2 >= CARD_MIN_WIDTH * 2 + GRID_GAP
+        val grid = rememberLazyGridState()
+        // Tapping the tab shows this page from the top (owner, M4c).
+        ScrollToTopOnTab("bookmarks", grid)
+        LazyVerticalGrid(
+            state = grid,
+            columns = GridCells.Adaptive(CARD_MIN_WIDTH),
+            contentPadding = PaddingValues(
+                start = GRID_SIDES,
+                end = GRID_SIDES,
+                top = insets.calculateTopPadding(),
+                bottom = insets.calculateBottomPadding() + chrome.calculateBottomPadding() + 24.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(GRID_GAP),
+            verticalArrangement = Arrangement.spacedBy(GRID_GAP),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                BookmarksHeader(
+                    state = state,
+                    actions = actions,
+                    searchOpen = searchOpen,
+                    query = query,
+                    onToggleSearch = {
+                        searchOpen = !searchOpen
+                        if (!searchOpen) query = ""
+                    },
+                    onQuery = { query = it },
+                    modifier = Modifier.reveal(0)
+                )
+            }
+            // The colour filter belongs on a book's page, not the tab (owner, 2026-11-07).
+            if (perBook && state.colours.size > 1) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ColourFilter(state.colours, state.filter, actions.onFilter, Modifier.reveal(1))
+                }
+            }
+            if (!state.loading && state.total == 0) {
+                item(span = { GridItemSpan(maxLineSpan) }) { EmptyBookmarks(Modifier.reveal(1)) }
+            }
+            if (perBook) {
+                itemsIndexed(filteredItems, key = { _, entry -> entry.bookmark.id }) { i, item ->
+                    Box(Modifier.animateItem().reveal(2 + i)) { BookmarkRow(item, actions, twoColumns) }
+                }
+            } else {
+                itemsIndexed(filteredBooks, key = { _, entry -> entry.book.id }) { i, item ->
+                    Box(Modifier.animateItem().reveal(2 + i)) { BookmarkBookRow(item, actions) }
+                }
+            }
+        }
+    }
+}
+
+@Suppress("LongParameterList", "LongMethod")
+@Composable
+private fun BookmarksHeader(
+    state: BookmarksUiState,
+    actions: BookmarkActions,
+    searchOpen: Boolean,
+    query: String,
+    onToggleSearch: () -> Unit,
+    onQuery: (String) -> Unit,
+    modifier: Modifier
+) {
+    val keys = state.items.map { item -> item.bookmark.id.toString() }
+    Column(modifier.padding(start = 4.dp, top = 10.dp, bottom = 4.dp)) {
+        val searchBtn: @Composable () -> Unit = {
+            FlowFolioIconButton(
+                onClick = onToggleSearch,
+                modifier = Modifier.testTag(LibraryTestTags.SEARCH),
+                tooltip = stringResource(R.string.action_search)
+            ) {
+                FlowFolioGlyph(Glyph.Search, stringResource(R.string.action_search))
+            }
+        }
+        ScreenHeader(
+            title = stringResource(R.string.bookmarks_title),
+            slogan = stringResource(R.string.bookmarks_slogan),
+            leading = actions.onBack?.let { back ->
+                {
+                    FlowFolioIconButton(
+                        onClick = back,
+                        glass = true,
+                        modifier = Modifier.padding(end = 14.dp),
+                        tooltip = stringResource(R.string.action_back)
+                    ) {
+                        FlowFolioGlyph(Glyph.Back, stringResource(R.string.action_back), color = FlowFolio.palette.text)
+                    }
+                }
+            },
+            actions = {
+                val sel = actions.selection
+                if (sel != null) SelectControls(sel, keys, normal = searchBtn) else searchBtn()
+            }
+        )
+        // The box grows, slides and fades in rather than appearing whole, as the library's does (owner, M5 round).
+        AnimatedVisibility(
+            visible = searchOpen,
+            enter = expandVertically(tween(Motion.MEDIUM_MS, easing = Motion.EaseOut)) +
+                slideInVertically(tween(Motion.MEDIUM_MS, easing = Motion.EaseOut)) { -it / SEARCH_SLIDE } +
+                fadeIn(tween(Motion.MEDIUM_MS, easing = Motion.EaseOut)),
+            exit = shrinkVertically(tween(Motion.FAST_MS, easing = Motion.EaseInOut)) +
+                fadeOut(tween(Motion.FAST_MS, easing = Motion.EaseInOut))
+        ) {
+            SearchField(
+                query = query,
+                onQuery = onQuery,
+                hintRes = R.string.search_bookmarks_hint,
+                autoFocus = true
+            )
+        }
+        actions.selection?.let {
+            SelectionRow(it, keys, actions.onDeleteChosen)
+        }
+        val book = state.book
+        if (book != null) {
+            Text(
+                stringResource(R.string.bookmarks_of, book.title),
+                style = FlowFolioType.sub.merge(FlowFolio.hint),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        } else if (state.total > 0) {
+            Text(
+                stringResource(
+                    R.string.bookmarks_sub,
+                    pluralStringResource(R.plurals.ribbon_count, state.total, state.total),
+                    pluralStringResource(R.plurals.book_count, state.bookCount, state.bookCount)
+                ),
+                style = FlowFolioType.sub.merge(FlowFolio.hint),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+/** `.chips`: All, then a chip per ribbon colour in use, each with its colour dot. */
+@Composable
+private fun ColourFilter(
+    colours: List<BookmarkColor>,
+    selected: BookmarkColor?,
+    onFilter: (BookmarkColor?) -> Unit,
+    modifier: Modifier
+) {
+    Row(
+        modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        FlowFolioChip(stringResource(R.string.bookmarks_filter_all), selected == null, { onFilter(null) })
+        colours.forEach { c -> ColourChip(c, c == selected) { onFilter(c) } }
+    }
+}
+
+@Composable
+private fun ColourChip(colour: BookmarkColor, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    val name = stringResource(colour.label)
+    val ring = if (selected) {
+        Modifier.border(
+            1.5.dp,
+            FlowFolio.palette.ink.copy(alpha = RING_ALPHA),
+            shape
+        )
+    } else {
+        Modifier
+    }
+    val dot = colour.color
+    Row(
+        Modifier
+            .card(shape)
+            .then(ring)
+            .clip(shape)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .semantics {
+                contentDescription = name
+                this.selected = selected
+            }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Canvas(Modifier.size(10.dp)) { drawCircle(dot) }
+        Text(
+            name,
+            style = FlowFolioType.chip.merge(if (selected) FlowFolio.title else FlowFolio.hint),
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
+}
+
+/** A card that slides: right for the colours, left for Remove. */
+@Composable
+private fun BookmarkRow(item: BookmarkItem, actions: BookmarkActions, uniform: Boolean) {
+    val selection = actions.selection
+    if (selection != null && selection.active) {
+        // Select mode: a tap chooses the card (it stays still here; owner, 2026-10-22); no swiping.
+        val key = item.bookmark.id.toString()
+        Box(Modifier.testTag(LibraryTestTags.bookmark(item.bookmark.id))) {
+            BookmarkCard(item, uniform) { selection.toggle(key) }
+            SelectionMark(selection, key)
+        }
+        return
+    }
+    SwipeRow(
+        startWidth = SWATCH_STRIP,
+        endWidth = REMOVE_WIDTH,
+        start = { close ->
+            Row(
+                Modifier.width(SWATCH_STRIP).fillMaxHeight(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BookmarkColor.entries.forEach { c ->
+                    Swatch(c, c == item.bookmark.color) {
+                        close()
+                        actions.onRecolour(item, c)
+                    }
+                }
+            }
+        },
+        end = { close ->
+            SwipeAction(R.string.action_remove, Glyph.Trash, FlowFolio.palette.danger) {
+                close()
+                actions.onRemove(item)
+            }
+        },
+        // Unfolded, a sliding card stays inside its own column; its shadow can still fall above and below.
+        modifier = Modifier
+            .drawWithContent {
+                clipRect(0f, -size.height, size.width, size.height * 2) { this@drawWithContent.drawContent() }
+            }
+            .testTag(LibraryTestTags.bookmark(item.bookmark.id))
+    ) {
+        var menu by remember { mutableStateOf(false) }
+        Box {
+            BookmarkCard(item, uniform, onHold = { menu = true }) { spot -> actions.onOpen(item, spot) }
+            FlowFolioMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                selection?.let {
+                    HoldEntry(R.string.action_select) {
+                        menu = false
+                        it.startWith(item.bookmark.id.toString())
+                    }
+                    FlowFolioMenuDivider()
+                }
+                HoldEntry(R.string.action_remove, warn = true, glyph = Glyph.Trash) {
+                    menu = false
+                    actions.onRemove(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Swatch(colour: BookmarkColor, current: Boolean, onClick: () -> Unit) {
+    val fill = colour.color
+    val ring = FlowFolio.palette.text
+    val name = stringResource(colour.label)
+    Box(
+        Modifier
+            .size(30.dp)
+            .semantics {
+                contentDescription = name
+                selected = current
+            }
+            .clip(CircleShape)
+            .drawBehind { drawCircle(fill) }
+            .then(if (current) Modifier.border(2.5.dp, ring, CircleShape) else Modifier)
+            .clickable(onClick = onClick)
+    )
+}
+
+/**
+ * `.bm`: the colour tag, the book's cover, "Ribbon · p. N", the title and the chapter in italics. [uniform] (two
+ * columns) gives every card the same height: two lines of title, one of chapter.
+ */
+@Composable
+private fun BookmarkCard(
+    item: BookmarkItem,
+    uniform: Boolean,
+    onHold: (() -> Unit)? = null,
+    onOpen: (CoverSpot) -> Unit
+) {
+    val spot = remember { CoverSpot().apply { angle = 0f } }
+    val cover by rememberCover(item.book)
+    spot.face = item.book.face(cover)
+    val tag = item.bookmark.color.color
+    FlowFolioCard(
+        Modifier.fillMaxWidth().combinedClickable(onClick = { onOpen(spot) }, onLongClick = onHold),
+        radius = 22.dp,
+        padding = PaddingValues(14.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            MiniCover(item.book, cover, Modifier.coverSpot(spot))
+            Column(Modifier.weight(1f).padding(end = 20.dp)) {
+                Text(
+                    ribbonKind(item),
+                    style = FlowFolioType.pill.copy(fontSize = 11.5.sp).merge(FlowFolio.subItem)
+                )
+                Text(
+                    item.book.title,
+                    style = FlowFolioType.rowLabel.merge(FlowFolio.item),
+                    minLines = if (uniform) 2 else 1,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                (item.chapter ?: if (uniform) "" else null)?.let {
+                    Text(
+                        it,
+                        style = FlowFolioType.sub.copy(
+                            fontFamily = FlowFolioType.heroTitle.fontFamily,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 14.sp
+                        ).merge(FlowFolio.hint),
+                        maxLines = if (uniform) 1 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        }
+        // `.tag`: a small ribbon hanging from the card's top edge.
+        Canvas(Modifier.align(Alignment.TopEnd).padding(end = 4.dp).offset(y = -TAG_RISE).size(14.dp, 30.dp)) {
+            val w = size.width
+            val h = size.height
+            drawPath(
+                Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(w, 0f)
+                    lineTo(w, h)
+                    lineTo(w / 2f, h * TAG_NOTCH)
+                    lineTo(0f, h)
+                    close()
+                },
+                tag
+            )
+        }
+    }
+}
+
+/** A book's card in the Bookmarks tab: a tap opens its ribbons; press and hold offers Select and Open. */
+@Composable
+private fun BookmarkBookRow(item: BookmarkBook, actions: BookmarkActions) {
+    val selection = actions.selection
+    val key = item.book.id
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        BookmarkBookCard(item, onHold = { if (selection == null || !selection.active) menu = true }) {
+            if (selection != null && selection.active) selection.toggle(key) else actions.onOpenBook(item.book)
+        }
+        if (selection != null) SelectionMark(selection, key)
+        FlowFolioMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            if (selection != null) {
+                HoldEntry(R.string.action_select) {
+                    menu = false
+                    selection.startWith(key)
+                }
+                FlowFolioMenuDivider()
+            }
+            HoldEntry(R.string.action_open) {
+                menu = false
+                actions.onOpenBook(item.book)
+            }
+        }
+    }
+}
+
+/**
+ * A book with ribbons: its cover, title and author, and a dot per ribbon colour actually placed in it (owner,
+ * 2026-11-07).
+ */
+@Composable
+private fun BookmarkBookCard(item: BookmarkBook, onHold: (() -> Unit)? = null, onClick: () -> Unit) {
+    val cover by rememberCover(item.book)
+    FlowFolioCard(
+        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onHold)
+            .testTag(LibraryTestTags.bookmarkBook(item.book.id)),
+        radius = 22.dp,
+        padding = PaddingValues(14.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            MiniCover(item.book, cover, Modifier)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    item.book.title,
+                    style = FlowFolioType.rowLabel.merge(FlowFolio.item),
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                item.book.author?.let {
+                    Text(
+                        it,
+                        style = FlowFolioType.sub.merge(FlowFolio.hint),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                // The count on the left, the book's ribbons gathered on the right (owner, 2026-11-07).
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        pluralStringResource(R.plurals.bookmark_count, item.count, item.count),
+                        style = FlowFolioType.sub.merge(FlowFolio.hint)
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (c in item.colours) RibbonMark(c.color)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A small ribbon in the book's colour, matching the ribbons actually placed in it (owner, 2026-11-07). */
+@Composable
+private fun RibbonMark(colour: Color) {
+    Canvas(Modifier.size(RIBBON_W, RIBBON_H)) {
+        val w = size.width
+        val h = size.height
+        drawPath(
+            Path().apply {
+                moveTo(0f, 0f)
+                lineTo(w, 0f)
+                lineTo(w, h)
+                lineTo(w / 2f, h * TAG_NOTCH)
+                lineTo(0f, h)
+                close()
+            },
+            colour
+        )
+    }
+}
+
+/** `.mini`: a small flat cover with a book's corners and a soft shadow. */
+@Composable
+internal fun MiniCover(book: Book, cover: CoverArt?, modifier: Modifier) {
+    val shape = RoundedCornerShape(topStart = 2.dp, bottomStart = 2.dp, topEnd = 5.dp, bottomEnd = 5.dp)
+    Box(
+        modifier
+            .size(48.dp, 70.dp)
+            .softShadow(shape, Color.Black.copy(alpha = MINI_SHADOW), blur = 14.dp, offsetY = 8.dp, spread = (-6).dp)
+            .clip(shape)
+            .semantics { contentDescription = book.title }
+    ) {
+        // The cover image, or the drawn title cover the shelf shows for books without one.
+        FlatCover(book.face(cover), Modifier.fillMaxSize())
+    }
+}
+
+/** No ribbons yet: what they are and how to add one. */
+@Composable
+private fun EmptyBookmarks(modifier: Modifier) {
+    FlowFolioCard(modifier.fillMaxWidth().padding(top = 12.dp), radius = 24.dp, padding = PaddingValues(24.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            FlowFolioGlyph(Glyph.Bookmark, contentDescription = null, color = FlowFolio.palette.ink2, size = 34.dp)
+            Spacer(Modifier.size(12.dp))
+            Text(stringResource(R.string.bookmarks_empty_title), style = FlowFolioType.rowLabel.merge(FlowFolio.item))
+            Text(
+                stringResource(R.string.bookmarks_empty_body),
+                style = FlowFolioType.sub.merge(FlowFolio.hint),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+private val BookmarkColor.label: Int
+    get() = when (this) {
+        BookmarkColor.SUB_ITEM -> R.string.bookmark_colour_red
+        BookmarkColor.TITLE -> R.string.bookmark_colour_orange
+        BookmarkColor.ITEM -> R.string.bookmark_colour_cyan
+        BookmarkColor.ACCENT -> R.string.bookmark_colour_magenta
+        BookmarkColor.GREEN -> R.string.bookmark_colour_green
+        BookmarkColor.TEAL -> R.string.bookmark_colour_teal
+        BookmarkColor.AMBER -> R.string.bookmark_colour_amber
+        BookmarkColor.ROSE -> R.string.bookmark_colour_rose
+        BookmarkColor.VIOLET -> R.string.bookmark_colour_violet
+    }
+
+private val CARD_MIN_WIDTH = 280.dp
+private val GRID_SIDES = 18.dp
+private val GRID_GAP = 12.dp
+private val SWATCH_STRIP = 220.dp
+private val REMOVE_WIDTH = 84.dp
+private const val TAG_NOTCH = 0.78f
+
+/** The card pads its content by 14 dp; the tag hangs from the card's own top edge. */
+private val TAG_RISE = 14.dp
+private const val RING_ALPHA = 0.6f
+private const val MINI_SHADOW = 0.55f
+
+/** A small ribbon on a book's card in the Bookmarks tab (owner, 2026-11-07). */
+private val RIBBON_W = 8.dp
+private val RIBBON_H = 16.dp
+
+/** The search box slides down from a third of its own height. */
+private const val SEARCH_SLIDE = 3

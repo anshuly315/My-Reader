@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FlowFolio</string>
+    <string name="tab_library">Library</string>
+    <string name="tab_shelves">Shelves</string>
+    <string name="tab_notebook">Notebook</string>
+    <string name="tab_tools">Tools</string>
+    <string name="tab_settings">Settings</string>
+    <string name="splash_tagline">Every textbook, reflowed. Every page, kept.</string>
+    <!-- The automatic update check's notice (Phase 4 M5). -->
+    <string name="update_banner_title">Update available</string>
+    <string name="update_banner_text">%1$s · tap to open Settings</string>
+    <string name="update_banner_dismiss">Dismiss</string>
+    <string name="updated_banner_title">FlowFolio was updated</string>
+    <string name="updated_banner_text">You are now on %1$s</string>
+    <!-- The "what's new" window shown once after an update. -->
+    <string name="whats_new_title">What\'s new</string>
+    <string name="whats_new_version">Version %1$s</string>
+    <string name="whats_new_ok">Ok</string>
+    <!-- Dynamic Flow notices in the app (ADR-0045). -->
+    <string name="flow_notice_started">Preparing Dynamic Flow</string>
+    <string name="flow_notice_started_text">%1$s keeps converting while you read.</string>
+    <string name="flow_notice_done">Dynamic Flow is ready</string>
+    <string name="flow_notice_done_text">%1$s now flows to fit your screen. Tap to read.</string>
+    <string name="flow_notice_failed">Dynamic Flow couldn\'t prepare this book</string>
+    <string name="flow_notice_failed_text">%1$s stays a PDF.</string>
+    <string name="flow_notice_interrupted_text">%1$s stopped part-way. Choose Dynamic Flow to try again.</string>
+    <string name="flow_notice_carrying">Bringing your notes across</string>
+    <string name="flow_notice_carrying_text">Highlights, notes and bookmarks in %1$s</string>
+    <string name="flow_notice_carried">Your notes came across</string>
+    <string name="flow_notice_carried_text">%1$d of %2$d found their place.</string>
+    <!-- TM1: before a scanned book is read by OCR. -->
+    <string name="scan_notice_title">This book is a scan</string>
+    <string name="scan_notice_body">Its pages are pictures, so Dynamic Flow reads them with text recognition. The text may not be exactly right, and it takes a while: %1$s for this book.\n\nYou can keep reading the original, or read another book. You will get a notification when it is ready.</string>
+    <string name="scan_notice_convert">Convert</string>
+    <string name="scan_notice_not_now">Not now</string>
+    <string name="scan_notice_dont_ask">Don\'t show this again</string>
+    <plurals name="scan_notice_minutes">
+        <item quantity="one">about a minute</item>
+        <item quantity="other">about %1$d minutes</item>
+    </plurals>
+    <plurals name="scan_notice_hours">
+        <item quantity="one">about an hour</item>
+        <item quantity="other">about %1$d hours</item>
+    </plurals>
+    <!-- Home-screen widgets (TM2). -->
+    <string name="widget_continue_name">Continue reading</string>
+    <string name="widget_continue_description">The book you are reading, where you left it</string>
+    <string name="widget_continue_label">Continue reading</string>
+    <string name="widget_continue_empty">Open a book in FlowFolio and it waits here</string>
+    <string name="widget_continue_where">Page %1$s of %2$s · %3$d%%</string>
+    <string name="widget_continue_page">p. %1$s of %2$s</string>
+    <string name="widget_goal_name">Reading goal</string>
+    <string name="widget_goal_description">Today\'s reading against your goal, and your streak</string>
+    <string name="widget_goal_label">Reading goal</string>
+    <string name="widget_goal_today">%1$d of %2$d min today</string>
+    <string name="widget_goal_week">%1$d of %2$d min this week</string>
+    <string name="widget_goal_month">%1$d of %2$d min this month</string>
+    <string name="widget_goal_of">of %1$d min</string>
+    <string name="widget_goal_no_streak">Read today to start a streak</string>
+    <plurals name="widget_goal_streak">
+        <item quantity="one">%1$d day in a row</item>
+        <item quantity="other">%1$d days in a row</item>
+    </plurals>
+    <string name="widget_narrator_name">Narrator</string>
+    <string name="widget_narrator_description">Listen to your book, and control it from the home screen</string>
+    <string name="widget_narrator_label">Narrator</string>
+    <string name="widget_narrator_empty">Open a book in FlowFolio to listen to it here</string>
+    <string name="widget_narrator_play">Play</string>
+    <string name="widget_narrator_pause">Pause</string>
+    <string name="widget_narrator_previous">Back</string>
+    <string name="widget_narrator_next">Forward</string>
+    <string name="widget_narrator_speed">%1$s×</string>
+</resources>

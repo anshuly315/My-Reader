@@ -1,0 +1,66 @@
+package com.flowfolio.feature.tools
+
+import androidx.annotation.StringRes
+import com.flowfolio.core.designsystem.Glyph
+
+/** What a tool takes in. */
+enum class ToolInput { ONE_PDF, MANY_PDF, IMAGES, BOOK }
+
+/** The PDF tools, after Stirling-PDF's, that run on the phone. */
+enum class PdfTool(
+    @StringRes val title: Int,
+    @StringRes val sub: Int,
+    val glyph: Glyph,
+    val input: ToolInput = ToolInput.ONE_PDF
+) {
+    MERGE(R.string.tool_merge, R.string.tool_merge_sub, Glyph.Shelves, ToolInput.MANY_PDF),
+    SPLIT(R.string.tool_split, R.string.tool_split_sub, Glyph.Sort),
+    EXTRACT(R.string.tool_extract, R.string.tool_extract_sub, Glyph.GoTo),
+    REMOVE(R.string.tool_remove, R.string.tool_remove_sub, Glyph.Trash),
+    ROTATE(R.string.tool_rotate, R.string.tool_rotate_sub, Glyph.Refresh),
+    REORDER(R.string.tool_reorder, R.string.tool_reorder_sub, Glyph.Direction),
+    WATERMARK(R.string.tool_watermark, R.string.tool_watermark_sub, Glyph.Highlight),
+    NUMBERS(R.string.tool_numbers, R.string.tool_numbers_sub, Glyph.Contents),
+    COMPRESS(R.string.tool_compress, R.string.tool_compress_sub, Glyph.Storage),
+    PROTECT(R.string.tool_protect, R.string.tool_protect_sub, Glyph.Bookmark),
+    UNLOCK(R.string.tool_unlock, R.string.tool_unlock_sub, Glyph.Select),
+    METADATA(R.string.tool_metadata, R.string.tool_metadata_sub, Glyph.Edit),
+    CROP(R.string.tool_crop, R.string.tool_crop_sub, Glyph.Margins),
+    FLATTEN(R.string.tool_flatten, R.string.tool_flatten_sub, Glyph.Page),
+    IMAGES_TO_PDF(R.string.tool_images_to_pdf, R.string.tool_images_to_pdf_sub, Glyph.Cover, ToolInput.IMAGES),
+    PDF_TO_IMAGES(R.string.tool_pdf_to_images, R.string.tool_pdf_to_images_sub, Glyph.OpenBook),
+    TEXT(R.string.tool_text, R.string.tool_text_sub, Glyph.TextSize),
+    BLANK_PAGES(R.string.tool_blank, R.string.tool_blank_sub, Glyph.Trash),
+    SANITIZE(R.string.tool_sanitize, R.string.tool_sanitize_sub, Glyph.Select),
+    REPAIR(R.string.tool_repair, R.string.tool_repair_sub, Glyph.Refresh),
+    N_UP(R.string.tool_nup, R.string.tool_nup_sub, Glyph.Page),
+    SINGLE_PAGE(R.string.tool_single, R.string.tool_single_sub, Glyph.Page),
+    EXTRACT_IMAGES(R.string.tool_extract_images, R.string.tool_extract_images_sub, Glyph.Cover),
+    CONVERT_BOOK(R.string.tool_convert_book, R.string.tool_convert_book_sub, Glyph.OpenBook, ToolInput.BOOK);
+
+    /** Whether the tool lets the reader choose pages. */
+    val usesPages: Boolean get() = this in setOf(EXTRACT, REMOVE, ROTATE, REORDER, PDF_TO_IMAGES)
+}
+
+/** Everything a tool can be asked, kept as the text the reader typed and read when the tool runs. */
+data class ToolOptions(
+    val pages: String = "",
+    val every: String = "1",
+    val degrees: Int = 90,
+    val text: String = "CONFIDENTIAL",
+    val opacity: Float = 0.25f,
+    val size: String = "60",
+    val start: String = "1",
+    val quality: Float = 0.6f,
+    val maxWidth: String = "1600",
+    val password: String = "",
+    val owner: String = "",
+    val title: String = "",
+    val author: String = "",
+    val subject: String = "",
+    val keywords: String = "",
+    val margin: String = "20",
+    val dpi: String = "150",
+    val jpeg: Boolean = false,
+    val perSheet: Int = 4
+)

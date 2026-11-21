@@ -1,0 +1,169 @@
+package com.flowfolio.feature.reader
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.flowfolio.core.data.AnnotationRepository
+import com.flowfolio.core.data.BookTextRepository
+import com.flowfolio.core.data.LibraryRepository
+import com.flowfolio.core.data.SettingsRepository
+import com.flowfolio.core.data.effective
+import com.flowfolio.core.data.flow.DynamicFlow
+import com.flowfolio.core.model.ControlsAutoHide
+import com.flowfolio.core.model.PageTurn
+import com.flowfolio.core.model.PaperStyle
+import com.flowfolio.core.model.ReaderText
+import com.flowfolio.core.model.UserSettings
+import com.flowfolio.core.model.allAtmospheres
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/** Backs the reader's "Aa" sheet. The reader itself observes the same settings and re-lays the book out. */
+@Suppress("TooManyFunctions")
+@HiltViewModel
+class ReaderSettingsViewModel @Inject constructor(
+    saved: SavedStateHandle,
+    private val repository: SettingsRepository,
+    library: LibraryRepository,
+    private val annotations: AnnotationRepository,
+    private val flow: DynamicFlow,
+    /** The book's own text settings (ADR-0052): what the Aa panel changes. */
+    private val bookText: BookTextRepository = BookTextRepository.None
+) : ViewModel() {
+    private val bookId: String = checkNotNull(saved[ReaderViewModel.ARG_BOOK_ID]) { "reader needs a bookId" }
+
+    /** The settings as this book shows them: its own text, or the defaults (ADR-0052). */
+    val settings: StateFlow<UserSettings> = bookText.effective(bookId, repository.settings)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), UserSettings())
+
+    /** Whether this book has text settings of its own, rather than following Settings → Text. */
+    val ownText: StateFlow<Boolean> = bookText.observe(bookId).map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), false)
+
+    /** Back to the defaults for this book. */
+    fun resetText() {
+        viewModelScope.launch { bookText.clear(bookId) }
+    }
+
+    /** Makes this book's text the default for every book that has none of its own. */
+    fun useTextAsDefault() {
+        viewModelScope.launch { repository.setReaderText(settings.value.text) }
+    }
+
+    /** This book's pages run right to left (a per-book choice, owner 2026-10-18). */
+    val rightToLeft: StateFlow<Boolean> = library.observeBook(bookId).map { it?.rightToLeft == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), false)
+
+    fun setRightToLeft(on: Boolean) {
+        viewModelScope.launch { annotations.setRightToLeft(bookId, on) }
+    }
+
+    fun setSpreads(on: Boolean) {
+        viewModelScope.launch { repository.setReaderSpreads(on) }
+    }
+
+    fun setCoverAlone(on: Boolean) {
+        viewModelScope.launch { repository.setSpreadCoverAlone(on) }
+    }
+
+    /**
+     * Puts a Reading Atmosphere on from the "Aa" sheet (owner, M5): the page settings it carries are applied at
+     * once, and the ambience follows from the settings the reader is already watching.
+     */
+    fun chooseAtmosphere(name: String?) {
+        viewModelScope.launch {
+            if (name == null) {
+                // "None": silence, leaving the page as the reader has it.
+                repository.setAtmosphereName(null)
+                return@launch
+            }
+            val settings = repository.settings.first()
+            val chosen = settings.allAtmospheres().firstOrNull { it.name == name } ?: return@launch
+            repository.setAtmosphereName(name)
+            if (!settings.atmosphereOn) repository.setAtmosphereOn(true)
+            repository.setReaderText(chosen.text)
+            // An atmosphere sets the book open too, which may have text of its own (ADR-0052).
+            bookText.set(bookId, chosen.text)
+            repository.setPaperStyle(chosen.paper)
+        }
+    }
+
+    fun setPaperStyle(style: PaperStyle) {
+        viewModelScope.launch { repository.setPaperStyle(style) }
+    }
+
+    fun setPageTurn(turn: PageTurn) {
+        viewModelScope.launch { repository.setPageTurn(turn) }
+    }
+
+    /**
+     * The EPUB text settings (M3); the reader lays the book out again at the reader's place. From the Aa panel they
+     * belong to this book (ADR-0052); Settings → Text holds the defaults.
+     */
+    fun setText(text: ReaderText) {
+        viewModelScope.launch { bookText.set(bookId, text) }
+    }
+
+    fun setControlsAutoHide(value: ControlsAutoHide) {
+        viewModelScope.launch { repository.setControlsAutoHide(value) }
+    }
+
+    fun setTurnSound(on: Boolean) {
+        viewModelScope.launch { repository.setTurnSound(on) }
+    }
+
+    fun setTurnVolume(volume: Float) {
+        viewModelScope.launch { repository.setTurnVolume(volume) }
+    }
+
+    fun setRiffleSound(on: Boolean) {
+        viewModelScope.launch { repository.setRiffleSound(on) }
+    }
+
+    fun setRiffleVolume(volume: Float) {
+        viewModelScope.launch { repository.setRiffleVolume(volume) }
+    }
+
+    /** What switching to or from Dynamic Flow does with annotations, once "don't show this again" was chosen. */
+    fun setFlowCarry(carry: com.flowfolio.core.model.FlowCarry) {
+        viewModelScope.launch { repository.setFlowCarry(carry) }
+    }
+
+    fun setScrubHaptics(on: Boolean) {
+        viewModelScope.launch { repository.setScrubHaptics(on) }
+    }
+
+    fun setReaderBrightness(brightness: Float) {
+        viewModelScope.launch { repository.setReaderBrightness(brightness) }
+    }
+
+    fun setKeepScreenOn(on: Boolean) {
+        viewModelScope.launch { repository.setKeepScreenOn(on) }
+    }
+
+    /** Remembers that the first-book demo was shown. */
+    fun markGuideSeen(id: String) {
+        viewModelScope.launch { repository.markGuideSeen(id) }
+    }
+
+    /** "Never show tips again": turns first-use tips off and remembers the demo as seen. */
+    fun disableTips(id: String) {
+        viewModelScope.launch {
+            repository.setTipsEnabled(false)
+            repository.markGuideSeen(id)
+        }
+    }
+
+    private companion object {
+        const val STOP_TIMEOUT_MS = 5_000L
+    }
+
+    /** Whether this book has highlights, notes or bookmarks in its Dynamic Flow ([inFlow]) or its PDF. */
+    suspend fun hasNotes(inFlow: Boolean): Boolean = flow.hasNotes(bookId, inFlow)
+}

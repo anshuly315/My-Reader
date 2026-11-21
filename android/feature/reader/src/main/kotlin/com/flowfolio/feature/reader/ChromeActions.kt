@@ -1,0 +1,31 @@
+package com.flowfolio.feature.reader
+
+import com.flowfolio.core.model.Annotation
+import com.flowfolio.core.model.Bookmark
+import com.flowfolio.core.model.BookmarkColor
+
+/** What is open on top of the reader. */
+internal enum class Panel { NONE, CONTENTS, GO_TO, SETTINGS, MARK, ANNOTATIONS, DICTIONARY, SEARCH, NARRATOR }
+
+/** What the reader's controls can ask for. */
+internal class ChromeActions(
+    val onBack: () -> Unit,
+    /** Contents, Go to page, Aa and the ribbon button: show or hide their panel (and restart the chrome's clock). */
+    val onPanel: (Panel) -> Unit,
+    /** The riffle bar was pulled down: put the controls away. Required, so it is never left unwired. */
+    val onDismissRiffle: () -> Unit
+)
+
+/**
+ * The ribbon on the page in view ([color], null when there is none) and what the bookmark button can do with it:
+ * put one on (or recolour it) and take it off.
+ */
+internal class ChromeMark(
+    val color: BookmarkColor?,
+    /** Every ribbon in the book, by page, for the ribbon panel's list. */
+    val all: List<Bookmark> = emptyList(),
+    /** The book's highlights and notes, for the Annotations panel. */
+    val notes: List<Annotation> = emptyList(),
+    val onMark: (BookmarkColor) -> Unit = {},
+    val onUnmark: () -> Unit = {}
+)

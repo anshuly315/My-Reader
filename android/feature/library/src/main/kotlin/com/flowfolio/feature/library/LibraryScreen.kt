@@ -1,0 +1,499 @@
+package com.flowfolio.feature.library
+
+import android.text.format.Formatter
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.flowfolio.core.designsystem.CoverSpot
+import com.flowfolio.core.designsystem.FlowFolio
+import com.flowfolio.core.designsystem.FlowFolioPrimaryButton
+import com.flowfolio.core.designsystem.FlowFolioSnackbarHost
+import com.flowfolio.core.designsystem.FlowFolioType
+import com.flowfolio.core.designsystem.LocalBookOpener
+import com.flowfolio.core.designsystem.LocalChromePadding
+import com.flowfolio.core.designsystem.Motion
+import com.flowfolio.core.designsystem.ScrollToTopOnTab
+import com.flowfolio.core.designsystem.Selection
+import com.flowfolio.core.designsystem.chromeStart
+import com.flowfolio.core.designsystem.color
+import com.flowfolio.core.designsystem.reveal
+import com.flowfolio.core.model.Availability
+import com.flowfolio.core.model.Book
+import com.flowfolio.core.model.LibrarySort
+import com.flowfolio.core.model.LibraryView
+import com.flowfolio.core.model.StatsBand
+
+/** What the file picker offers: PDFs and EPUBs (Phase 2). */
+private val PDF_TYPES = arrayOf("application/pdf", "application/epub+zip")
+
+/** What the library screen can ask for. [onOpen] gets the row the book was tapped in, for the cover flight. */
+data class LibraryActions(
+    /** Picks files to import (one or several). */
+    val onImport: () -> Unit = {},
+    /** Picks a folder to import, with every folder inside it. */
+    val onImportFolder: () -> Unit = {},
+    /** Makes a shelf from a folder and from every folder inside it. */
+    val onFolderToShelves: (FolderEntry) -> Unit = {},
+    val onOpen: (LibraryItem, String) -> Unit = { _, _ -> },
+    val onResume: (LibraryItem) -> Unit = {},
+    val onDelete: (Book) -> Unit = {},
+    val onLocate: (Book) -> Unit = {},
+    val onAddToShelf: (Book) -> Unit = {},
+    val onRename: ((Book) -> Unit)? = null,
+    /** Turns a PDF's Dynamic Flow on or off (ADR-0045); null hides the menu entry. */
+    val onFlow: ((Book) -> Unit)? = null,
+    /** Makes a book a favourite, or not; marks it finished, or not (owner, M3T2). */
+    val onFavorite: ((Book) -> Unit)? = null,
+    val onFinished: ((Book) -> Unit)? = null,
+    /** The book's ribbons; null hides the menu entry. */
+    val onBookmarks: ((Book) -> Unit)? = null,
+    /** The book's highlights and notes; null hides the Continue Reading shortcut and menu entry. */
+    val onAnnotations: ((Book) -> Unit)? = null,
+    /** The book's dictionary entries; null hides the menu entry. */
+    val onDictionary: ((Book) -> Unit)? = null,
+    /** Opens the Reading Goal dialog for a specific book; null hides the menu entry. */
+    val onSetBookGoal: ((Book) -> Unit)? = null,
+    /** Opens an imported folder's page, by its path. */
+    val onOpenFolder: (String) -> Unit = {},
+    /** Asks to remove a folder's books from the library. */
+    val onRemoveFolder: (FolderEntry) -> Unit = {},
+    /** Saves a shelf's new order after a drag and drop; null where books cannot be reordered (a filtered view). */
+    val onReorder: ((Long, List<String>) -> Unit)? = null,
+    /** Opens a whole shelf ([ShelfPageViewModel.LOOSE] for the books on no shelf). */
+    val onOpenShelf: (Long) -> Unit = {},
+    val onReadingGoal: () -> Unit = {},
+    val onSort: (LibrarySort) -> Unit = {},
+    /** Shelf, grid or list (ADR-0052). */
+    val onView: (LibraryView) -> Unit = {},
+    /** Picks a folder to import and make into shelves straight away. */
+    val onImportFolderAsShelves: () -> Unit = {},
+    /** Opens or closes the stats band (ADR-0052). */
+    val onStatsBand: (StatsBand) -> Unit = {},
+    /** A stats tile: a chip, a Notebook section or the reading goal. */
+    val onStat: (StatTarget) -> Unit = {},
+    val onFilter: (LibraryFilter) -> Unit = {},
+    val onQuery: (String) -> Unit = {},
+    /** Where the "Continue reading" cover is, so Resume opens the book from it. */
+    val heroSpot: CoverSpot = CoverSpot(),
+    /** Select mode (owner, 2026-10-22); null where books cannot be selected. */
+    val selection: Selection? = null,
+    /** Asks to remove the chosen books. */
+    val onDeleteChosen: () -> Unit = {},
+    /** Whether the welcome coach mark should point at the import button, and its actions. */
+    val welcomeVisible: Boolean = false,
+    val onWelcomeSeen: () -> Unit = {},
+    val onNeverShowTips: () -> Unit = {}
+)
+
+/** Library route: wires the ViewModels, file pickers, snackbar messages and shelf dialogs to [LibraryContent]. */
+@Suppress("LongParameterList", "LongMethod")
+@Composable
+fun LibraryScreen(
+    onOpenDetails: (Book, String) -> Unit,
+    onRead: (Book) -> Unit,
+    onOpenShelf: (Long) -> Unit = {},
+    onOpenFolder: (String) -> Unit = {},
+    onBookmarks: (Book) -> Unit = {},
+    onAnnotations: (Book) -> Unit = {},
+    onDictionary: (Book) -> Unit = {},
+    onOpenNotebook: (NotebookSection) -> Unit = {},
+    scrollToShelf: Long? = null,
+    onScrolledToShelf: () -> Unit = {},
+    viewModel: LibraryViewModel = hiltViewModel(),
+    shelves: ShelvesViewModel = hiltViewModel(),
+    statsViewModel: LibraryStatsViewModel = hiltViewModel(),
+    searchViewModel: SearchViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.query) { searchViewModel.onQuery(state.query) }
+    // The app introduces itself once, when the library first opens (owner, M5). The one-line welcome stays out of
+    // the way while the full tour is still owed, so the two never stack on top of each other (owner, M5 round 4).
+    val guideSettings by viewModel.guideSettings.collectAsStateWithLifecycle()
+    // The welcome coach mark points at the import button once, after the full tour (owner, 2026-11-07).
+    val welcome = guideSettings?.takeIf { TOUR_SEEN in it.seenGuides }?.let { Guide.Welcome.unseen(it) } == true
+    val found by searchViewModel.results.collectAsStateWithLifecycle()
+    var shelving by remember { mutableStateOf<Book?>(null) }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        viewModel.onFilesPicked(uris.map { it.toString() })
+    }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { viewModel.onFolderPicked(it.toString()) }
+    }
+    val shelvesPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { viewModel.onFolderPickedForShelves(it.toString()) }
+    }
+    val locate = rememberLocate(viewModel)
+    val opener = LocalBookOpener.current
+    val heroSpot = remember { CoverSpot() }
+    val stats = rememberLibraryStats(statsViewModel, state.continueReading?.book?.id)
+    val setBookGoal = rememberLibraryBookGoalDialog(statsViewModel)
+    val openGoal = rememberLibraryGoalDialog(statsViewModel, stats, state, onOpenDetails)
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    // Pull down to bring imported folders up to date (TM2).
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = viewModel::refresh
+    ) {
+        LibraryContent(
+            state,
+            rememberMessages(viewModel),
+            stats,
+            LibraryActions(
+                onImport = { importPicker.launch(PDF_TYPES) },
+                onImportFolder = { folderPicker.launch(null) },
+                onImportFolderAsShelves = { shelvesPicker.launch(null) },
+                onFolderToShelves = viewModel::onFolderToShelves,
+                onOpen = { item, origin ->
+                    if (item.availability ==
+                        Availability.MISSING
+                    ) {
+                        locate(item.book)
+                    } else {
+                        onOpenDetails(item.book, origin)
+                    }
+                },
+                onResume = { item ->
+                    if (item.availability == Availability.MISSING) {
+                        locate(item.book)
+                    } else {
+                        viewModel.onBookOpened(item.book.id)
+                        opener?.open(heroSpot) { onRead(item.book) } ?: onRead(item.book)
+                    }
+                },
+                onDelete = viewModel::onRequestDelete,
+                onLocate = locate,
+                onAddToShelf = { shelving = it },
+                onFlow = rememberDynamicFlowSwitch(viewModel),
+                onFavorite = viewModel::toggleFavorite,
+                onFinished = viewModel::toggleFinished,
+                onOpenShelf = onOpenShelf,
+                onReadingGoal = openGoal,
+                onStat = { target ->
+                    when (target) {
+                        is StatTarget.Filter -> viewModel.onFilter(target.filter)
+                        is StatTarget.Notebook -> onOpenNotebook(target.section)
+                        StatTarget.Goal -> openGoal()
+                    }
+                },
+                onOpenFolder = onOpenFolder,
+                onRemoveFolder = rememberRemoveFolder(viewModel),
+                onReorder = { id: Long, ids: List<String> -> shelves.setOrder(id, ids).let {} }
+                    .takeIf { state.filter == LibraryFilter.ALL && state.query.isBlank() },
+                onBookmarks = onBookmarks,
+                onAnnotations = onAnnotations,
+                onDictionary = onDictionary,
+                onSetBookGoal = setBookGoal,
+                onSort = viewModel::onSortChange,
+                onView = viewModel::onViewChange,
+                onStatsBand = viewModel::onStatsBand,
+                onFilter = viewModel::onFilter,
+                onQuery = viewModel::onQuery,
+                heroSpot = heroSpot,
+                welcomeVisible = welcome,
+                onWelcomeSeen = { viewModel.markGuideSeen(Guide.Welcome.id) },
+                onNeverShowTips = { viewModel.disableTips(Guide.Welcome.id) }
+            ),
+            found,
+            scrollToShelf,
+            onScrolledToShelf
+        )
+    }
+    LibraryDialogs(state.dialog, viewModel)
+    shelving?.let { ShelveBookFlow(it, state.shelves, shelves) { shelving = null } }
+}
+
+/** The snackbar the library's messages show in. */
+@Composable
+private fun rememberMessages(viewModel: LibraryViewModel): SnackbarHostState {
+    val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbar.showSnackbar(it.text(context)) }
+    }
+    return snackbar
+}
+
+/** Remove from library on a folder: asks first, then removes every book in it. */
+@Composable
+private fun rememberRemoveFolder(viewModel: LibraryViewModel): (FolderEntry) -> Unit {
+    var removing by remember { mutableStateOf<FolderEntry?>(null) }
+    removing?.let { folder ->
+        RemoveFolderDialog(folder, onConfirm = { viewModel.onRemoveFolder(folder.path) }) { removing = null }
+    }
+    return { removing = it }
+}
+
+/** Locate for a moved or missing book: the system picker, then the book is pointed at the file chosen. */
+@Composable
+private fun rememberLocate(viewModel: LibraryViewModel): (Book) -> Unit {
+    var relinkBookId by rememberSaveable { mutableStateOf<String?>(null) }
+    val relinkPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val id = relinkBookId
+        if (uri != null && id != null) viewModel.onRelinkPicked(id, uri.toString())
+        relinkBookId = null
+    }
+    return { book: Book ->
+        relinkBookId = book.id
+        relinkPicker.launch(PDF_TYPES)
+    }
+}
+
+/**
+ * The library (ADR-0052): the header with its search bar, the stats band, Continue reading, the reading goal (folded),
+ * the chips, then the books on their shelves, as a grid or as a list. The global search opens over it all.
+ */
+@Suppress("LongMethod")
+@Composable
+fun LibraryContent(
+    state: LibraryUiState,
+    snackbar: SnackbarHostState,
+    stats: LibraryStats = LibraryStats(),
+    actions: LibraryActions,
+    search: SearchResults = SearchResults(),
+    scrollToShelf: Long? = null,
+    onScrolledToShelf: () -> Unit = {}
+) {
+    val chrome = LocalChromePadding.current
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+    var searching by rememberSaveable { mutableStateOf(state.query.isNotEmpty()) }
+    val list = rememberLazyListState()
+    val wide = libraryWide()
+    val perRow = booksPerRow()
+    val gutter = libraryGutter()
+    // A tap on the Library tab shows the page from the top (owner, M4c).
+    ScrollToTopOnTab("library", list)
+    // Shelves screen -> "show this shelf": scroll its row into view once the rows are there.
+    LaunchedEffect(scrollToShelf, state.loading, state.shelves) {
+        val target = scrollToShelf ?: return@LaunchedEffect
+        if (state.loading) return@LaunchedEffect
+        val index = rowIndex(state, target, wide)
+        if (index != null) list.animateScrollToItem(index)
+        onScrolledToShelf()
+    }
+    Box(Modifier.fillMaxSize().chromeStart()) {
+        LazyColumn(
+            Modifier.fillMaxSize().testTag(LibraryTestTags.GRID),
+            state = list,
+            contentPadding = PaddingValues(
+                top = insets.calculateTopPadding(),
+                bottom = insets.calculateBottomPadding() + chrome.calculateBottomPadding() + LIST_END
+            )
+        ) {
+            item(key = "header") {
+                Column(Modifier.padding(horizontal = gutter).reveal(0)) {
+                    LibraryHeader(state, wide, actions)
+                    if (!state.libraryEmpty) {
+                        LibrarySearchBar(onOpen = { searching = true }, Modifier.padding(top = 16.dp))
+                    }
+                }
+            }
+            if (state.importing) item(key = "importing") { ImportProgress(state.importProgress) }
+            libraryBody(state, actions, stats, wide, perRow, gutter)
+        }
+        FlowFolioSnackbarHost(
+            snackbar,
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = insets.calculateBottomPadding() + chrome.calculateBottomPadding())
+        )
+        AnimatedVisibility(
+            visible = searching,
+            enter = fadeIn(tween(Motion.FAST_MS)) +
+                slideInVertically(tween(Motion.RISE_MS, easing = Motion.Rise)) { it / SEARCH_RISE },
+            exit = fadeOut(tween(Motion.FAST_MS))
+        ) {
+            GlobalSearch(
+                query = state.query,
+                onQuery = actions.onQuery,
+                onClose = {
+                    searching = false
+                    actions.onQuery("")
+                },
+                results = search,
+                recent = state.recent,
+                actions = actions
+            )
+        }
+    }
+}
+
+@Suppress("LongParameterList")
+private fun LazyListScope.libraryBody(
+    state: LibraryUiState,
+    actions: LibraryActions,
+    stats: LibraryStats,
+    wide: Boolean,
+    perRow: Int,
+    gutter: androidx.compose.ui.unit.Dp
+) {
+    when {
+        state.loading -> Unit
+
+        state.libraryEmpty -> item(key = "empty") { EmptyLibrary(actions) }
+
+        else -> {
+            libraryTop(state, actions, stats, wide, gutter)
+            when {
+                state.filter == LibraryFilter.FOLDERS -> folderRoots(state, actions)
+
+                state.items.isEmpty() -> item(key = "nomatch") { NoMatch() }
+
+                state.view == LibraryView.SHELF && state.filter == LibraryFilter.ALL ->
+                    shelfSections(state, actions, perRow, gutter)
+
+                state.view == LibraryView.LIST -> {
+                    item(key = "list-gap") { Spacer(Modifier.height(BODY_GAP)) }
+                    bookList("list", state.items, gutter, actions)
+                }
+
+                else -> {
+                    item(key = "grid-gap") { Spacer(Modifier.height(BODY_GAP)) }
+                    bookRows(
+                        "grid",
+                        state.items,
+                        perRow,
+                        gutter,
+                        GRID_ORIGIN,
+                        actions,
+                        planks = state.view == LibraryView.SHELF,
+                        revealFrom = ROWS_REVEAL_ORDER
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyLibrary(actions: LibraryActions) {
+    androidx.compose.foundation.layout.Column(
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 96.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            stringResource(R.string.library_empty),
+            style = FlowFolioType.prose.merge(FlowFolio.hint),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag(LibraryTestTags.EMPTY)
+        )
+        FlowFolioPrimaryButton(
+            text = stringResource(R.string.import_files),
+            onClick = actions.onImport,
+            modifier = Modifier.padding(top = 20.dp)
+        )
+        com.flowfolio.core.designsystem.FlowFolioGhostButton(
+            text = stringResource(R.string.import_folder),
+            onClick = actions.onImportFolder,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+    }
+}
+
+@Composable
+internal fun NoMatch() {
+    Text(
+        stringResource(R.string.library_no_match),
+        style = FlowFolioType.sub.merge(FlowFolio.hint),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(32.dp)
+    )
+}
+
+/** The global search rises in from a twelfth of its height. */
+private const val SEARCH_RISE = 12
+
+private const val GRID_ORIGIN = "grid"
+internal const val LOOSE_ORIGIN = "loose"
+
+private val LIST_END = 24.dp
+
+/** Shelf rows reveal after the header, stats, hero, goal and chips (orders 0 to 4). */
+internal const val ROWS_REVEAL_ORDER = 5
+
+/** Space between the chips and a grid or list (`margin-top: 18px`). */
+private val BODY_GAP = 18.dp
+
+@Suppress("CyclomaticComplexMethod") // one branch per message
+internal fun LibraryMessage.text(context: android.content.Context): String = when (this) {
+    is LibraryMessage.Imported -> context.getString(R.string.msg_imported, title)
+
+    is LibraryMessage.Duplicate -> context.getString(R.string.msg_duplicate, title)
+
+    is LibraryMessage.ImportedMany -> listOfNotNull(
+        context.resources.getQuantityString(R.plurals.msg_added_books, imported, imported),
+        already.takeIf { it > 0 }?.let { context.getString(R.string.msg_already_count, it) },
+        failed.takeIf { it > 0 }?.let { context.getString(R.string.msg_failed_count, it) }
+    ).joinToString(" · ")
+
+    is LibraryMessage.FoldersSynced -> if (added == 0) {
+        context.getString(R.string.msg_folders_up_to_date)
+    } else {
+        context.resources.getQuantityString(R.plurals.msg_folders_added, added, added)
+    }
+
+    LibraryMessage.FolderEmpty -> context.getString(R.string.msg_folder_empty)
+
+    LibraryMessage.NotABook -> context.getString(R.string.msg_not_a_pdf)
+
+    LibraryMessage.DrmProtected -> context.getString(R.string.msg_drm)
+
+    LibraryMessage.Unreadable -> context.getString(R.string.msg_unreadable)
+
+    is LibraryMessage.NotEnoughSpace -> context.getString(
+        R.string.msg_no_space,
+        Formatter.formatShortFileSize(context, bytes)
+    )
+
+    LibraryMessage.Relinked -> context.getString(R.string.msg_relinked)
+
+    LibraryMessage.RelinkDifferentFile -> context.getString(R.string.msg_relink_different)
+
+    LibraryMessage.RelinkFailed -> context.getString(R.string.msg_relink_failed)
+
+    is LibraryMessage.Deleted -> context.getString(R.string.msg_deleted, title)
+
+    is LibraryMessage.ShelvesMade ->
+        context.resources.getQuantityString(R.plurals.msg_shelves_made, shelves, shelves)
+}
