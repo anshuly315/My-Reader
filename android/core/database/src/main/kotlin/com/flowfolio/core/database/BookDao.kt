@@ -39,6 +39,9 @@ interface BookDao {
     @Query("UPDATE books SET storage_mode = :storageMode, location = :location WHERE id = :id")
     suspend fun updateLocation(id: String, storageMode: String, location: String)
 
+    @Query("UPDATE books SET cover_path = :path WHERE id = :id")
+    suspend fun setCover(id: String, path: String?)
+
     @Query("UPDATE books SET folder = :folder WHERE id = :id")
     suspend fun setFolder(id: String, folder: String?)
 

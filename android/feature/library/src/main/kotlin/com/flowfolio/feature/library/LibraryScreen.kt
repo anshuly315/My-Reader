@@ -79,6 +79,10 @@ data class LibraryActions(
     val onOpen: (LibraryItem, String) -> Unit = { _, _ -> },
     val onResume: (LibraryItem) -> Unit = {},
     val onDelete: (Book) -> Unit = {},
+    /** Removes the book and deletes its file from the phone. */
+    val onDeleteFile: (Book) -> Unit = {},
+    /** Searches Open Library for a cover and lets the reader pick one. */
+    val onFindCover: (Book) -> Unit = {},
     val onLocate: (Book) -> Unit = {},
     val onAddToShelf: (Book) -> Unit = {},
     val onRename: ((Book) -> Unit)? = null,
@@ -203,6 +207,8 @@ fun LibraryScreen(
                     }
                 },
                 onDelete = viewModel::onRequestDelete,
+                onDeleteFile = viewModel::onRequestDeleteFile,
+                onFindCover = viewModel::onFindCover,
                 onLocate = locate,
                 onAddToShelf = { shelving = it },
                 onFlow = rememberDynamicFlowSwitch(viewModel),

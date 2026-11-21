@@ -102,7 +102,7 @@ enum class Audition {
 private const val AUDITION_VOLUME = 0.6f
 
 // One setter per setting, each a line: splitting the class would only scatter them.
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repo: SettingsRepository,

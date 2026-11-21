@@ -195,6 +195,10 @@ sealed interface LibraryDialog {
 
     data class ConfirmDelete(val book: Book) : LibraryDialog
 
+    data class ConfirmDeleteFile(val book: Book) : LibraryDialog
+
+    data class FindCover(val book: Book) : LibraryDialog
+
     /** After the first import: may FlowFolio look book details up online (ADR-0017)? */
     data class AskLookup(val books: List<Book>) : LibraryDialog
 
@@ -580,6 +584,20 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun onRequestDelete(book: Book) = showDialog(LibraryDialog.ConfirmDelete(book))
+
+    fun onFindCover(book: Book) = showDialog(LibraryDialog.FindCover(book))
+
+    suspend fun searchCovers(book: Book) = library.findCovers(book.id)
+
+    suspend fun chooseCover(book: Book, choice: com.flowfolio.core.data.CoverChoice) = library.useCover(book.id, choice)
+
+    fun onRequestDeleteFile(book: Book) = showDialog(LibraryDialog.ConfirmDeleteFile(book))
+
+    fun onConfirmDeleteFile(book: Book) = viewModelScope.launch {
+        dismissDialog()
+        library.deleteFromStorage(book.id)
+        messageChannel.send(LibraryMessage.Deleted(book.title))
+    }
 
     /** Removes every book in the folder [path] and the folders inside it (asked first). */
     fun onRemoveFolder(path: String) = viewModelScope.launch {

@@ -71,6 +71,15 @@ interface LibraryRepository {
     /** Removes the book; deletes FlowFolio's copy and cover, and releases access to linked files. */
     suspend fun delete(bookId: String)
 
+    /** Picture choices for the book's cover from Open Library, searched only when the reader asks. */
+    suspend fun findCovers(bookId: String): List<CoverChoice> = emptyList()
+
+    /** Downloads the chosen picture and makes it the book's cover; false when it could not be fetched. */
+    suspend fun useCover(bookId: String, choice: CoverChoice): Boolean = false
+
+    /** Removes the book and also deletes its file from the phone for good (the original, when it is read in place). */
+    suspend fun deleteFromStorage(bookId: String) = delete(bookId)
+
     suspend fun markOpened(bookId: String)
 
     /** Gives the book a new title in the library ([title] trimmed, not blank). The file is not changed. */

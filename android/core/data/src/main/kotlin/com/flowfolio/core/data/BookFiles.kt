@@ -13,6 +13,14 @@ class BookFiles(private val root: File) {
 
     fun cover(id: String) = File(covers, "$id.jpg")
 
+    /** A new file for a cover the reader chose; its name changes each time so no old picture stays cached. */
+    fun newCover(id: String) = File(covers, "$id-${System.currentTimeMillis()}.jpg")
+
+    /** Every cover kept for [id]. */
+    fun deleteCovers(id: String) {
+        covers.listFiles { f -> f.name == "$id.jpg" || f.name.startsWith("$id-") }?.forEach { it.delete() }
+    }
+
     fun newTemp(): File = File.createTempFile("import-", ".part", temp)
 
     /** Free space for new books. A missing directory reports 0 bytes, so make sure it exists first. */

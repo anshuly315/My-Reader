@@ -97,6 +97,7 @@ import com.flowfolio.core.model.UserSettings
 import kotlin.math.roundToInt
 
 @Composable
+@Suppress("LongMethod")
 fun SettingsScreen(
     onOpenLicenses: () -> Unit = {},
     scrollToUpdates: Int = 0,

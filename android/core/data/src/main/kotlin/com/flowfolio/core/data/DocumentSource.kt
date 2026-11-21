@@ -43,6 +43,9 @@ interface DocumentSource {
     /** Keeps read access to the folder [treeUri] and everything under it across restarts; false when not allowed. */
     fun persistFolderAccess(treeUri: String): Boolean
 
+    /** Deletes the file behind [uri] from the phone for good; false when the provider refuses or it is gone. */
+    fun deleteFile(uri: String): Boolean = false
+
     /** The folders FlowFolio keeps access to (picked for reading in place, or kept for syncing). */
     fun heldFolders(): List<String> = emptyList()
 }
@@ -102,6 +105,14 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
         } catch (_: SecurityException) {
             // Already released or never held (a file inside a folder the app holds): nothing to do.
         }
+    }
+
+    override fun deleteFile(uri: String): Boolean = try {
+        if (isFile(uri)) fileOf(uri).delete() else DocumentsContract.deleteDocument(resolver, Uri.parse(uri))
+    } catch (_: SecurityException) {
+        false
+    } catch (_: FileNotFoundException) {
+        false
     }
 
     private fun isFile(uri: String) = uri.startsWith("file:")

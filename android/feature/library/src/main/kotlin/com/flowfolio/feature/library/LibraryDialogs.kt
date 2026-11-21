@@ -46,6 +46,7 @@ import com.flowfolio.core.model.BookStorage
 import com.flowfolio.core.model.StorageMode
 
 @Composable
+@Suppress("LongMethod")
 internal fun LibraryDialogs(dialog: LibraryDialog?, viewModel: LibraryViewModel) {
     when (dialog) {
         null -> Unit
@@ -81,6 +82,23 @@ internal fun LibraryDialogs(dialog: LibraryDialog?, viewModel: LibraryViewModel)
             title = { Text(stringResource(R.string.link_not_possible_title)) },
             text = { Text(stringResource(R.string.link_not_possible_body)) },
             confirmButton = { DialogButton(R.string.action_copy_instead) { viewModel.onCopyInstead(dialog.request) } },
+            dismissButton = { DialogButton(R.string.action_cancel, viewModel::dismissDialog) }
+        )
+
+        is LibraryDialog.FindCover -> FindCoverDialog(
+            dialog.book.title,
+            search = { viewModel.searchCovers(dialog.book) },
+            choose = { viewModel.chooseCover(dialog.book, it) },
+            onDismiss = viewModel::dismissDialog
+        )
+
+        is LibraryDialog.ConfirmDeleteFile -> FlowFolioAlertDialog(
+            onDismissRequest = viewModel::dismissDialog,
+            title = { Text(stringResource(R.string.delete_file_title, dialog.book.title)) },
+            text = { Text(stringResource(R.string.delete_file_body)) },
+            confirmButton = {
+                DialogButton(R.string.delete_file_confirm) { viewModel.onConfirmDeleteFile(dialog.book) }
+            },
             dismissButton = { DialogButton(R.string.action_cancel, viewModel::dismissDialog) }
         )
 
@@ -178,7 +196,7 @@ private fun StorageOption(selected: Boolean, label: String, disclaimer: String, 
 }
 
 @Composable
-private fun DialogButton(label: Int, onClick: () -> Unit) {
+internal fun DialogButton(label: Int, onClick: () -> Unit) {
     TextButton(onClick = onClick) { Text(stringResource(label)) }
 }
 

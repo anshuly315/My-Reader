@@ -156,10 +156,23 @@ internal fun BookMenu(item: LibraryItem, origin: String, open: Boolean, actions:
                 glyph = Glyph.Folder
             )
         }
+        FlowFolioMenuItem(
+            stringResource(R.string.action_find_cover),
+            run {
+                actions.onFindCover(book)
+            },
+            glyph = Glyph.Edit
+        )
         FlowFolioMenuDivider()
         FlowFolioMenuItem(
             stringResource(R.string.action_remove_from_library),
             run { actions.onDelete(book) },
+            glyph = Glyph.Trash,
+            destructive = true
+        )
+        FlowFolioMenuItem(
+            stringResource(R.string.action_delete_file),
+            run { actions.onDeleteFile(book) },
             glyph = Glyph.Trash,
             destructive = true
         )

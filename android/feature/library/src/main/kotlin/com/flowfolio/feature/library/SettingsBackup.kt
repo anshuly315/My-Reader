@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
  * in the details and authors books are missing.
  */
 @Composable
+@Suppress("LongMethod")
 internal fun BackupRows(actions: SettingsActions) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

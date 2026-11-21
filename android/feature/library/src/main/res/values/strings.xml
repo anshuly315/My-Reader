@@ -896,4 +896,15 @@
     <string name="library_filled">Updated %1$d books.</string>
     <string name="library_phone">Look for books on the whole phone</string>
     <string name="library_phone_detail">Asks again whether to keep books in place or copy them, then scans.</string>
+    <string name="action_delete_file">Delete file from phone</string>
+    <string name="delete_file_title">Delete \"%1$s\" from this phone?</string>
+    <string name="delete_file_body">The book file is erased from your storage for good, and the book leaves the library with its notes. This cannot be undone.</string>
+    <string name="delete_file_confirm">Delete file</string>
+    <string name="action_find_cover">Find a cover…</string>
+    <string name="cover_find_title">Cover for \"%1$s\"</string>
+    <string name="cover_searching">Searching Open Library…</string>
+    <string name="cover_none">No covers found for this title.</string>
+    <string name="cover_pick">Tap a picture to use it as the cover.</string>
+    <string name="cover_saving">Saving the cover…</string>
+    <string name="cover_failed">That picture could not be saved. Try another.</string>
 </resources>

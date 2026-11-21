@@ -257,9 +257,33 @@ class DefaultLibraryRepository @Inject constructor(
             StorageMode.COPY.name -> File(book.location).delete()
             StorageMode.LINK.name -> source.releaseReadAccess(book.location)
         }
-        files.cover(bookId).delete()
+        files.deleteCovers(bookId)
         flow.delete(bookId)
         Unit
+    }
+
+    override suspend fun findCovers(bookId: String): List<CoverChoice> = withContext(io) {
+        val book = dao.get(bookId) ?: return@withContext emptyList()
+        runCatching { CoverSearch.search(book.title, book.author) }.getOrDefault(emptyList())
+    }
+
+    override suspend fun useCover(bookId: String, choice: CoverChoice): Boolean = withContext(io) {
+        val book = dao.get(bookId) ?: return@withContext false
+        val target = files.newCover(bookId)
+        val ok = runCatching { CoverSearch.save(choice, target) }.getOrDefault(false)
+        if (ok) {
+            dao.setCover(bookId, target.absolutePath)
+            book.coverPath?.takeIf { it != target.absolutePath }?.let { File(it).delete() }
+        } else {
+            target.delete()
+        }
+        ok
+    }
+
+    override suspend fun deleteFromStorage(bookId: String) {
+        val book = withContext(io) { dao.get(bookId) }
+        if (book?.storageMode == StorageMode.LINK.name) withContext(io) { source.deleteFile(book.location) }
+        delete(bookId)
     }
 
     override suspend fun rename(bookId: String, title: String) = withContext(io) {
