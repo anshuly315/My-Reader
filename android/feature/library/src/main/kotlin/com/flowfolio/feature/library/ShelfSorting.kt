@@ -52,6 +52,14 @@ fun sortBooks(books: List<Book>, sort: ShelfSort, inputs: ShelfSortInputs): List
  * The library's books in [sort] order (ADR-0052), with [readMillis] for [LibrarySort.READ_TIME]. Ties fall back to the
  * title, so equal books keep a steady order. "Recently opened" puts books never opened last, newest added first.
  */
+private val ARTICLES = listOf("the ", "a ", "an ")
+
+/** A title in lower case without a leading "The", "A" or "An", so "The Odyssey" sorts under O. */
+internal fun withoutArticle(title: String): String {
+    val t = title.trim().lowercase()
+    return ARTICLES.firstOrNull { t.startsWith(it) }?.let { t.removePrefix(it) } ?: t
+}
+
 fun orderLibrary(books: List<Book>, sort: LibrarySort, readMillis: Map<String, Long> = emptyMap()): List<Book> {
     val byTitle = compareBy<Book> { it.title.lowercase() }
     val order: Comparator<Book> = when (sort) {
@@ -67,6 +75,14 @@ fun orderLibrary(books: List<Book>, sort: LibrarySort, readMillis: Map<String, L
         LibrarySort.PROGRESS -> compareByDescending { if (it.finished) 1f else it.progress }
 
         LibrarySort.READ_TIME -> compareByDescending { readMillis[it.id] ?: 0L }
+
+        LibrarySort.TITLE_NO_ARTICLES -> compareBy { withoutArticle(it.title) }
+
+        LibrarySort.FILE_SIZE -> compareByDescending { it.sizeBytes }
+
+        LibrarySort.PAGE_COUNT -> compareByDescending { it.pageCount }
+
+        LibrarySort.OLDEST_ADDED -> compareBy { it.addedAtMillis }
     }
     return books.sortedWith(order.then(byTitle))
 }

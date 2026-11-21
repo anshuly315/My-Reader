@@ -15,6 +15,19 @@ object Options {
     const val COVER_SIZE = "cover_size"
     const val HIDDEN_TABS = "hidden_tabs"
     const val HIDDEN_TOOLS = "hidden_tools"
+    const val ORIENTATION = "orientation"
+    const val BLUE_LIGHT = "blue_light"
+    const val COLUMNS = "columns"
+
+    val orientations = listOf("auto", "portrait", "landscape")
+
+    fun orientationIndex(o: Map<String, String>) = orientations.indexOf(o[ORIENTATION]).coerceAtLeast(0)
+
+    /** 0 is off; 1 to 3 warm the screen more and more. */
+    fun blueLight(o: Map<String, String>) = (o[BLUE_LIGHT]?.toIntOrNull() ?: 0).coerceIn(0, 3)
+
+    /** Books across the library grid: 0 lets the screen width decide, 2 to 6 fixes it. */
+    fun columns(o: Map<String, String>) = (o[COLUMNS]?.toIntOrNull() ?: 0).let { if (it in 2..6) it else 0 }
 
     val coverRadiusDp = listOf(0, 4, 8, 14, 20)
     val coverSizes = listOf(0.8f, 1f, 1.2f, 1.5f, 1.8f)

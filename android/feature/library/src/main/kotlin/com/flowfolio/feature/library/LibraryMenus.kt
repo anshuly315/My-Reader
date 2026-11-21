@@ -235,6 +235,10 @@ internal val LibrarySort.label: Int
         LibrarySort.DATE_ADDED -> R.string.sort_date_added
         LibrarySort.PROGRESS -> R.string.sort_progress
         LibrarySort.READ_TIME -> R.string.sort_read_time
+        LibrarySort.TITLE_NO_ARTICLES -> R.string.sort_title_no_articles
+        LibrarySort.FILE_SIZE -> R.string.sort_file_size
+        LibrarySort.PAGE_COUNT -> R.string.sort_page_count
+        LibrarySort.OLDEST_ADDED -> R.string.sort_oldest_added
     }
 
 private val LibraryView.label: Int
@@ -242,6 +246,8 @@ private val LibraryView.label: Int
         LibraryView.SHELF -> R.string.view_shelf
         LibraryView.GRID -> R.string.view_grid
         LibraryView.LIST -> R.string.view_list
+        LibraryView.CONDENSED -> R.string.view_condensed
+        LibraryView.COVERS -> R.string.view_covers
     }
 
 private val LibraryView.glyph: Glyph
@@ -249,4 +255,6 @@ private val LibraryView.glyph: Glyph
         LibraryView.SHELF -> Glyph.Shelves
         LibraryView.GRID -> Glyph.Library
         LibraryView.LIST -> Glyph.Contents
+        LibraryView.CONDENSED -> Glyph.Contents
+        LibraryView.COVERS -> Glyph.Library
     }

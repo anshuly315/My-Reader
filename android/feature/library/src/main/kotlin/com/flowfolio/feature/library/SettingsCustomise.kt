@@ -16,7 +16,12 @@ import com.flowfolio.core.model.Options
 import com.flowfolio.core.model.UserSettings
 
 /** The tabs a reader may hide; Settings always stays so the choice can be undone. */
-internal val HIDEABLE_TABS = listOf("shelves" to R.string.custom_tab_shelves, "notebook" to R.string.custom_tab_notebook, "tools" to R.string.custom_tab_tools)
+internal val HIDEABLE_TABS =
+    listOf(
+        "shelves" to R.string.custom_tab_shelves,
+        "notebook" to R.string.custom_tab_notebook,
+        "tools" to R.string.custom_tab_tools
+    )
 
 /** Customise: glass mode, how books look in the grid and shelves, and which tabs show. */
 @Composable
@@ -38,6 +43,14 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
                 Options.coverSizes.map { "${it}x" },
                 Options.coverSizeIndex(o),
                 { actions.onOption(Options.COVER_SIZE, it.toString()) }
+            )
+        }
+        Divider()
+        Choice(R.string.custom_columns) {
+            FlowFolioSegmented(
+                listOf(stringResource(R.string.custom_columns_auto)) + (2..6).map { it.toString() },
+                Options.columns(o).let { if (it == 0) 0 else it - 1 },
+                { actions.onOption(Options.COLUMNS, if (it == 0) "0" else (it + 1).toString()) }
             )
         }
         Divider()

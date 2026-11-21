@@ -257,15 +257,26 @@ internal fun LazyListScope.shelfRow(
 }
 
 /** Books as a list (`.listrow`): a small cover, title, author · format · pages, a progress bar, and where it stands. */
-internal fun LazyListScope.bookList(keyPrefix: String, items: List<LibraryItem>, gutter: Dp, actions: LibraryActions) {
+internal fun LazyListScope.bookList(
+    keyPrefix: String,
+    items: List<LibraryItem>,
+    gutter: Dp,
+    actions: LibraryActions,
+    dense: Boolean = false
+) {
     itemsIndexed(items, key = { _, entry -> "$keyPrefix-${entry.book.id}" }) { i, item ->
-        BookListRow(item, actions, Modifier.padding(horizontal = gutter).reveal(i))
+        BookListRow(item, actions, Modifier.padding(horizontal = gutter).reveal(i), dense)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BookListRow(item: LibraryItem, actions: LibraryActions, modifier: Modifier = Modifier) {
+private fun BookListRow(
+    item: LibraryItem,
+    actions: LibraryActions,
+    modifier: Modifier = Modifier,
+    dense: Boolean = false
+) {
     val p = FlowFolio.palette
     val book = item.book
     val cover by rememberCover(book)
@@ -280,12 +291,12 @@ private fun BookListRow(item: LibraryItem, actions: LibraryActions, modifier: Mo
                 val h = 1.dp.toPx()
                 drawRect(p.line, Offset(0f, size.height - h), Size(size.width, h))
             }
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = if (dense) 4.dp else 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (dense) 10.dp else 14.dp)
     ) {
         Box {
-            BookCover(book.face(cover), Modifier.width(52.dp).conversionBar(book.id))
+            BookCover(book.face(cover), Modifier.width(if (dense) 30.dp else 52.dp).conversionBar(book.id))
             BookMenu(item, LIST_ORIGIN, menu, actions) { menu = false }
         }
         Column(Modifier.weight(1f)) {

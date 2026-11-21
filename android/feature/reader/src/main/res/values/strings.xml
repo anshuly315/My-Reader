@@ -198,6 +198,15 @@
     <string name="reader_chip_brightness">Brightness</string>
     <string name="reader_brightness_slider">Screen brightness</string>
     <string name="reader_chip_keep_screen_on">Keep screen on</string>
+    <string name="reader_orientation">Screen orientation</string>
+    <string name="reader_orient_auto">Auto</string>
+    <string name="reader_orient_portrait">Portrait</string>
+    <string name="reader_orient_landscape">Landscape</string>
+    <string name="reader_blue_light">Blue-light filter</string>
+    <string name="reader_blue_off">Off</string>
+    <string name="reader_blue_low">Low</string>
+    <string name="reader_blue_medium">Medium</string>
+    <string name="reader_blue_high">High</string>
     <string name="reader_dictionary">Dictionary</string>
     <string name="reader_tab_definitions">Definitions</string>
     <string name="reader_tab_translations">Translations</string>

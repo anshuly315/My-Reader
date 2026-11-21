@@ -230,6 +230,7 @@ private fun SettingsPage.summary(settings: UserSettings, housekeeping: Housekeep
         ?: stringResource(R.string.state_off)
 
     SettingsPage.Customise -> stringResource(R.string.settings_customise_summary)
+
     SettingsPage.Library -> stringResource(
         if (settings.storageMode == StorageMode.COPY) {
             R.string.settings_library_summary_copy

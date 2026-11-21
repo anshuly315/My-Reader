@@ -38,6 +38,9 @@ val LocalGlassStyle = staticCompositionLocalOf { GlassStyle() }
 /** The corner radius, in dp, of book covers: the reader's choice on the Customise page. */
 val LocalCoverRadius = staticCompositionLocalOf { 8 }
 
+/** Books across the library grid (0 = by screen width). */
+val LocalLibraryColumns = staticCompositionLocalOf { 0 }
+
 /** Scales the books in the grid and shelf views: 1 is the standard size. */
 val LocalCoverScale = staticCompositionLocalOf { 1f }
 

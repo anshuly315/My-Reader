@@ -82,10 +82,21 @@ enum class Availability { AVAILABLE, MISSING }
  * opened first; [TITLE] and [AUTHOR] are alphabetical; [DATE_ADDED], [PROGRESS] and [READ_TIME] put the newest, the
  * furthest read and the longest read first.
  */
-enum class LibrarySort { RECENT, TITLE, AUTHOR, DATE_ADDED, PROGRESS, READ_TIME }
+enum class LibrarySort {
+    RECENT,
+    TITLE,
+    AUTHOR,
+    DATE_ADDED,
+    PROGRESS,
+    READ_TIME,
+    TITLE_NO_ARTICLES,
+    FILE_SIZE,
+    PAGE_COUNT,
+    OLDEST_ADDED
+}
 
 /** How the library lays its books out (ADR-0052): on shelves (rows over planks), as a grid, or as a list. */
-enum class LibraryView { SHELF, GRID, LIST }
+enum class LibraryView { SHELF, GRID, LIST, CONDENSED, COVERS }
 
 /** How the Shelves tab orders its shelves (ADR-0052): their own order, or by name, books, time read or marks. */
 enum class ShelvesOrder { CUSTOM, NAME, MOST_BOOKS, MOST_READ, MOST_MARKS }

@@ -66,6 +66,7 @@ import com.flowfolio.core.designsystem.Glyph
 import com.flowfolio.core.designsystem.Motion
 import com.flowfolio.core.designsystem.swipeTabs
 import com.flowfolio.core.model.ControlsAutoHide
+import com.flowfolio.core.model.Options
 import com.flowfolio.core.model.PageTurn
 import com.flowfolio.core.model.PaperStyle
 import com.flowfolio.core.model.UserSettings
@@ -241,6 +242,29 @@ private fun ControlsChoice(settings: UserSettings, viewModel: ReaderSettingsView
         sounds?.previewRiffle()
     }
     BrightnessRow(settings, viewModel)
+    StackedOpt(stringResource(R.string.reader_orientation)) {
+        FlowFolioSegmented(
+            listOf(R.string.reader_orient_auto, R.string.reader_orient_portrait, R.string.reader_orient_landscape)
+                .map { stringResource(it) },
+            Options.orientationIndex(settings.options),
+            { viewModel.setOption(Options.ORIENTATION, Options.orientations[it]) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    StackedOpt(stringResource(R.string.reader_blue_light)) {
+        FlowFolioSegmented(
+            listOf(
+                R.string.reader_blue_off,
+                R.string.reader_blue_low,
+                R.string.reader_blue_medium,
+                R.string.reader_blue_high
+            )
+                .map { stringResource(it) },
+            Options.blueLight(settings.options),
+            { viewModel.setOption(Options.BLUE_LIGHT, it.toString()) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     SwitchRow(
         stringResource(R.string.reader_chip_haptics),
         settings.scrubHaptics,

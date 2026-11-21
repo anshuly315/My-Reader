@@ -447,6 +447,12 @@
     <string name="sort_date_added">Date added</string>
     <string name="sort_progress">Progress</string>
     <string name="sort_read_time">Read time</string>
+    <string name="sort_title_no_articles">Title (ignoring "the", "a", "an")</string>
+    <string name="sort_file_size">File size</string>
+    <string name="sort_page_count">Page count</string>
+    <string name="sort_oldest_added">Oldest added</string>
+    <string name="view_condensed">Condensed list</string>
+    <string name="view_covers">Book covers</string>
     <string name="sort_read_goal">Read Goal</string>
     <string name="sort_custom">Custom</string>
     <string name="action_batch_flow">Batch Dynamic Flow</string>
@@ -865,6 +871,8 @@
     <string name="custom_covers">Book covers</string>
     <string name="custom_cover_size">Cover size in the grid and on shelves</string>
     <string name="custom_cover_radius">Corner roundness</string>
+    <string name="custom_columns">Books across the library (grid and covers)</string>
+    <string name="custom_columns_auto">Auto</string>
     <string name="custom_tabs">Tabs shown</string>
     <string name="custom_tab_shelves">Shelves</string>
     <string name="custom_tab_notebook">Notebook</string>

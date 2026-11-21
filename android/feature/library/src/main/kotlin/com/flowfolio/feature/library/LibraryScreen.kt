@@ -300,7 +300,12 @@ fun LibraryContent(
     var searching by rememberSaveable { mutableStateOf(state.query.isNotEmpty()) }
     val list = rememberLazyListState()
     val wide = libraryWide()
-    val perRow = (booksPerRow() / com.flowfolio.core.designsystem.LocalCoverScale.current).toInt().coerceIn(1, 8)
+    val fixedColumns = com.flowfolio.core.designsystem.LocalLibraryColumns.current
+    val perRow = if (fixedColumns > 0) {
+        fixedColumns
+    } else {
+        (booksPerRow() / com.flowfolio.core.designsystem.LocalCoverScale.current).toInt().coerceIn(1, 8)
+    }
     val gutter = libraryGutter()
     // A tap on the Library tab shows the page from the top (owner, M4c).
     ScrollToTopOnTab("library", list)
@@ -383,9 +388,9 @@ private fun LazyListScope.libraryBody(
                 state.view == LibraryView.SHELF && state.filter == LibraryFilter.ALL ->
                     shelfSections(state, actions, perRow, gutter)
 
-                state.view == LibraryView.LIST -> {
+                state.view == LibraryView.LIST || state.view == LibraryView.CONDENSED -> {
                     item(key = "list-gap") { Spacer(Modifier.height(BODY_GAP)) }
-                    bookList("list", state.items, gutter, actions)
+                    bookList("list", state.items, gutter, actions, dense = state.view == LibraryView.CONDENSED)
                 }
 
                 else -> {
@@ -393,7 +398,7 @@ private fun LazyListScope.libraryBody(
                     bookRows(
                         "grid",
                         state.items,
-                        perRow,
+                        if (state.view == LibraryView.COVERS) perRow + 2 else perRow,
                         gutter,
                         GRID_ORIGIN,
                         actions,

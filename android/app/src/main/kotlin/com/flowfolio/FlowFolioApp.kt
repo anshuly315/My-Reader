@@ -93,6 +93,7 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
     val palette = FlowFolio.palette
     CompositionLocalProvider(
         LocalCoverRadius provides Options.coverRadiusDp[Options.coverRadiusIndex(options)],
+        com.flowfolio.core.designsystem.LocalLibraryColumns provides Options.columns(options),
         LocalCoverScale provides Options.coverSizes[Options.coverSizeIndex(options)],
         LocalHiddenTabs provides Options.hiddenTabs(options),
         LocalToolPrefs provides ToolPrefs(Options.hiddenTools(options)) {

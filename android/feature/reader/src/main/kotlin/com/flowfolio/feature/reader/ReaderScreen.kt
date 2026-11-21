@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowfolio.core.designsystem.FlowFolio
 import com.flowfolio.core.designsystem.color
 import com.flowfolio.core.model.Bookmark
+import com.flowfolio.core.model.Options
 import com.flowfolio.core.pagecurl.config.PageCurlConfig
 import com.flowfolio.core.pagecurl.config.rememberPageCurlConfig
 import com.flowfolio.core.pagecurl.page.PageCurl
@@ -81,6 +82,7 @@ fun ReaderScreen(
     val images by viewModel.pageImages.collectAsStateWithLifecycle()
     val navigation by viewModel.navigation.collectAsStateWithLifecycle()
     ReaderDisplayEffects(userSettings.keepScreenOn, userSettings.readerBrightness)
+    ReaderOrientationEffect(Options.orientationIndex(userSettings.options))
     TrimMemoryEffect(viewModel::onTrimMemory)
     NarratorNotificationPermission(viewModel)
     // System Back closes the book the same way as the Back button (open panels catch it first).
@@ -106,6 +108,18 @@ fun ReaderScreen(
             StatusBarForPaper(LocalPaperReveal.current?.fromTone ?: tone)
             Box(Modifier.fillMaxSize()) {
                 ReaderRoot(state, images, navigation, viewModel, bookmarks, marks, onBack)
+                val warm = Options.blueLight(userSettings.options)
+                if (warm > 0) {
+                    // A warm wash over the page, with no input of its own, so every tap still reaches the reader.
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            androidx.compose.ui.graphics.Color(0xFFFF9A2E).copy(
+                                alpha =
+                                    warm * BLUE_STEP
+                            )
+                        )
+                    )
+                }
                 if (state is ReaderState.Ready && READER_DEMO !in userSettings.seenGuides && userSettings.tipsEnabled) {
                     ReaderDemo(
                         onDone = { direction.markGuideSeen(READER_DEMO) },
@@ -155,6 +169,24 @@ private fun NarratorNotificationPermission(viewModel: ReaderViewModel) {
             asked = true
             ask.launch(permission)
         }
+    }
+}
+
+private const val BLUE_STEP = 0.07f
+
+/** Locks the screen to portrait or landscape while the book is open; Auto follows the phone. */
+@Composable
+private fun ReaderOrientationEffect(index: Int) {
+    val context = LocalContext.current
+    DisposableEffect(context, index) {
+        val activity = context as? android.app.Activity
+        val before = activity?.requestedOrientation
+        activity?.requestedOrientation = when (index) {
+            1 -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+            2 -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+            else -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        onDispose { before?.let { activity.requestedOrientation = it } }
     }
 }
 

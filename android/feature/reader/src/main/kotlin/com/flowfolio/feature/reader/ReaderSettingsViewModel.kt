@@ -51,6 +51,11 @@ class ReaderSettingsViewModel @Inject constructor(
         viewModelScope.launch { bookText.clear(bookId) }
     }
 
+    /** One Customise choice (orientation, blue-light filter). */
+    fun setOption(key: String, value: String) {
+        viewModelScope.launch { repository.setOption(key, value) }
+    }
+
     /** Makes this book's text the default for every book that has none of its own. */
     fun useTextAsDefault() {
         viewModelScope.launch { repository.setReaderText(settings.value.text) }
