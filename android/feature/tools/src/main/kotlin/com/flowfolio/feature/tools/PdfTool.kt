@@ -50,7 +50,10 @@ enum class PdfTool(
     COMPARE(R.string.tool_compare, R.string.tool_compare_sub, Glyph.Select, ToolInput.MANY_PDF),
     REDACT(R.string.tool_redact, R.string.tool_redact_sub, Glyph.Select),
     GRAYSCALE(R.string.tool_grayscale, R.string.tool_grayscale_sub, Glyph.Page),
-    INVERT(R.string.tool_invert, R.string.tool_invert_sub, Glyph.Page);
+    INVERT(R.string.tool_invert, R.string.tool_invert_sub, Glyph.Page),
+    TEXT_TO_PDF(R.string.tool_text_to_pdf, R.string.tool_text_to_pdf_sub, Glyph.Page, ToolInput.BOOK),
+    BOOKMARKS(R.string.tool_bookmarks, R.string.tool_bookmarks_sub, Glyph.Page),
+    HEALTH(R.string.tool_health, R.string.tool_health_sub, Glyph.Page);
 
     /** Whether the tool lets the reader choose pages. */
     val usesPages: Boolean get() = this in setOf(EXTRACT, REMOVE, ROTATE, REORDER, PDF_TO_IMAGES)

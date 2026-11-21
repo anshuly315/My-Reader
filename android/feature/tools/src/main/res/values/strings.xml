@@ -177,4 +177,11 @@
     <string name="discover_added">%1$s was added to your library.</string>
     <string name="discover_already">%1$s is already in your library.</string>
     <string name="discover_failed">%1$s could not be added. Try again.</string>
+    <string name="tool_text_to_pdf">Text to PDF</string>
+    <string name="tool_text_to_pdf_sub">Turn TXT, Markdown or HTML files into a PDF.</string>
+    <string name="tool_bookmarks">Add bookmarks</string>
+    <string name="tool_bookmarks_sub">Type a title and page per line to build a contents list.</string>
+    <string name="tool_health">Health check</string>
+    <string name="tool_health_sub">Find what makes a PDF hard to use or share.</string>
+    <string name="opt_bookmarks">One per line: title, page (for example Introduction, 3)</string>
 </resources>

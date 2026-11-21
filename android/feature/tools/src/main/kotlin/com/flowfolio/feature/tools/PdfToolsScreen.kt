@@ -347,6 +347,10 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
             vm.options { it.copy(text = v) }
         })
 
+        PdfTool.BOOKMARKS -> ToolField(stringResource(R.string.opt_bookmarks), o.text, { v ->
+            vm.options { it.copy(text = v) }
+        })
+
         PdfTool.REDACT -> ToolField(stringResource(R.string.opt_redact_words), o.text, { v ->
             vm.options { it.copy(text = v) }
         })

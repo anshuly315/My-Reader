@@ -269,4 +269,31 @@ class PdfToolkitTest {
             kit.redact(textPdf("r3.pdf", "hi"), File(tmp.root, "r4.pdf"), listOf(" "))
         }
     }
+
+    @Test
+    fun textToPdfWrapsAndPaginates() {
+        val src = File(tmp.root, "n.md").also { it.writeText("# Title\n" + "word ".repeat(2000)) }
+        val out = File(tmp.root, "n.pdf")
+        kit.textToPdf(src, out)
+        assertTrue(kit.info(out).pages >= 2)
+        assertTrue(kit.extractText(out).contains("Title"))
+    }
+
+    @Test
+    fun bookmarksAreAddedAndChecked() {
+        val out = File(tmp.root, "b.pdf")
+        kit.addBookmarks(pdf("b0.pdf", 3), out, "Intro, 1\nEnd, 3")
+        assertTrue(kit.healthCheck(out).contains("Bookmarks: yes"))
+        assertThrows(PdfToolException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                kit.run { kit.addBookmarks(pdf("b1.pdf", 2), File(tmp.root, "b2.pdf"), "X, 9") }
+            }
+        }
+    }
+
+    @Test
+    fun healthCheckSaysScannedOrSearchable() {
+        assertTrue(kit.healthCheck(textPdf("t.pdf", "hello")).contains("searchable"))
+        assertTrue(kit.healthCheck(pdf("blank.pdf", 1)).contains("Pages: 1"))
+    }
 }

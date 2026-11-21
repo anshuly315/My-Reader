@@ -702,6 +702,162 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         }
     }
 
+    /** A PDF made from a text, Markdown or HTML file: A4 pages, wrapped lines, "#" headings in bold. */
+    @Suppress("NestedBlockDepth")
+    fun textToPdf(input: File, output: File) {
+        val raw = input.readText()
+        val html = input.extension.lowercase() in setOf("html", "htm", "xhtml")
+        val lines = if (html) BookConverter.htmlToParagraphs(raw) else raw.lines()
+        require(lines.any { it.isNotBlank() }) { "That file has no text." }
+        val doc = PDDocument()
+        try {
+            val box = PDRectangle.A4
+            val margin = TEXT_MARGIN
+            var page = PDPage(box)
+            doc.addPage(page)
+            var cs = PDPageContentStream(doc, page)
+            var y = box.height - margin
+            fun fresh() {
+                cs.close()
+                page = PDPage(box)
+                doc.addPage(page)
+                cs = PDPageContentStream(doc, page)
+                y = box.height - margin
+            }
+            for (line in lines) {
+                val heading = !html && line.startsWith("#")
+                val text = pdfSafe(if (heading) line.trimStart('#', ' ') else line.replace("**", "").replace("`", ""))
+                val font = if (heading) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
+                val size = if (heading) TEXT_HEAD else TEXT_BODY
+                val lead = size * TEXT_LEADING
+                for (part in wrap(text, font, size, box.width - 2 * margin).ifEmpty { listOf("") }) {
+                    if (y < margin) fresh()
+                    cs.beginText()
+                    cs.setFont(font, size)
+                    cs.newLineAtOffset(margin, y)
+                    cs.showText(part)
+                    cs.endText()
+                    y -= lead
+                }
+                if (heading) y -= lead / 2
+            }
+            cs.close()
+            save(doc, output)
+        } finally {
+            doc.close()
+        }
+    }
+
+    private fun pdfSafe(text: String) = buildString {
+        for (c in text) {
+            append(
+                if (c.code in 32..126 ||
+                    c.code in 161..255
+                ) {
+                    c
+                } else if (c == '\t') {
+                    "    "
+                } else if (c.code < 32) {
+                    ""
+                } else {
+                    "?"
+                }
+            )
+        }
+    }
+
+    private fun wrap(text: String, font: PDType1Font, size: Float, width: Float): List<String> {
+        val out = mutableListOf<String>()
+        var cur = ""
+        for (word in text.split(' ')) {
+            val next = if (cur.isEmpty()) word else "$cur $word"
+            if (font.getStringWidth(next) / FONT_UNITS * size <= width) {
+                cur = next
+            } else {
+                if (cur.isNotEmpty()) out += cur
+                cur = word
+            }
+        }
+        if (cur.isNotEmpty()) out += cur
+        return out
+    }
+
+    /** Adds bookmarks from lines like "Introduction, 3" (a title, a comma, the page); replaces the old ones. */
+    fun addBookmarks(input: File, output: File, spec: String) {
+        val entries = spec.lines().map { it.trim() }.filter { it.isNotEmpty() }.map {
+            val at = it.lastIndexOf(',')
+            require(at > 0) { "Write each bookmark as: title, page number." }
+            it.substring(0, at).trim() to (
+                it.substring(at + 1).trim().toIntOrNull()
+                    ?: throw IllegalArgumentException("\"${it.substring(at + 1).trim()}\" is not a page number.")
+                )
+        }
+        require(entries.isNotEmpty()) { "Enter at least one bookmark." }
+        load(input).use2 { d ->
+            val outline = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline()
+            d.documentCatalog.documentOutline = outline
+            for ((title, page) in entries) {
+                require(page in 1..d.numberOfPages) { "Page $page is not in this PDF (1 to ${d.numberOfPages})." }
+                val item = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem()
+                item.title = title
+                item.destination = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination
+                    .PDPageFitDestination().also { it.page = d.getPage(page - 1) }
+                outline.addLast(item)
+            }
+            outline.openNode()
+            save(d, output)
+        }
+    }
+
+    /** A plain-language report on a PDF: size, pages, text or scanned, fonts, forms, attachments, bookmarks, locks. */
+    @Suppress("CyclomaticComplexMethod")
+    fun healthCheck(input: File): String = load(input).use2 { d ->
+        val fonts = mutableSetOf<String>()
+        var unembedded = 0
+        var images = 0
+        for (page in d.pages) {
+            val res = page.resources ?: continue
+            for (name in res.fontNames) {
+                val f = runCatching { res.getFont(name) }.getOrNull() ?: continue
+                if (fonts.add(f.name ?: name.name) && !f.isEmbedded && !f.isStandard14) unembedded++
+            }
+            images += res.xObjectNames.count { runCatching { res.isImageXObject(it) }.getOrDefault(false) }
+        }
+        val text = PDFTextStripper().also { it.endPage = minOf(d.numberOfPages, HEALTH_SAMPLE_PAGES) }.getText(d)
+        val info = d.documentInformation
+        val files = d.documentCatalog.names?.embeddedFiles?.names?.size ?: 0
+        val forms = d.documentCatalog.acroForm?.fields?.size ?: 0
+        val links = d.pages.sumOf { p -> p.annotations.count { it.subtype == "Link" } }
+        buildString {
+            appendLine("PDF health check")
+            appendLine("File size: ${"%.1f".format(input.length() / BYTES_PER_MB.toFloat())} MB")
+            appendLine("Pages: ${d.numberOfPages}   PDF version: ${d.version}")
+            appendLine("Locked: ${if (d.isEncrypted) "yes (needs a password or has permissions)" else "no"}")
+            appendLine(
+                "Text: " +
+                    if (text.isBlank()) {
+                        "none found in the first pages: this looks scanned, so run OCR to search it"
+                    } else {
+                        "searchable"
+                    }
+            )
+            appendLine("Pictures on pages: $images")
+            appendLine(
+                "Fonts: ${fonts.size}" +
+                    if (unembedded >
+                        0
+                    ) {
+                        " ($unembedded not embedded; may look different on other devices)"
+                    } else {
+                        " (all embedded)"
+                    }
+            )
+            appendLine("Form fields: $forms   Attachments: $files   Links: $links")
+            appendLine("Bookmarks: ${if (d.documentCatalog.documentOutline?.hasChildren() == true) "yes" else "none"}")
+            appendLine("Title: ${info.title ?: "not set"}   Author: ${info.author ?: "not set"}")
+        }
+    }
+
     /** Lists, page by page, the lines that are in one document and not the other. */
     fun compare(a: File, b: File): String {
         fun lines(f: File): List<List<String>> = load(f).use2 { d ->
@@ -861,6 +1017,11 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_SIZE = 10f
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
+        const val TEXT_MARGIN = 56f
+        const val TEXT_BODY = 11f
+        const val TEXT_HEAD = 16f
+        const val TEXT_LEADING = 1.35f
+        const val HEALTH_SAMPLE_PAGES = 5
         const val BYTES_PER_MB = 1024L * 1024L
         const val FONT_UNITS = 1000f
         const val HEADER_SIZE = 10f

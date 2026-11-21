@@ -55,7 +55,7 @@ class ToolsViewModel @Inject constructor(
     fun open(tool: PdfTool) {
         val text = when (tool) {
             PdfTool.HEADER, PdfTool.FOOTER -> "{n} / {total}"
-            PdfTool.REDACT -> ""
+            PdfTool.REDACT, PdfTool.BOOKMARKS -> ""
             else -> ToolOptions().text
         }
         _state.value = ToolsState(tool = tool, options = ToolOptions(text = text))
@@ -255,6 +255,12 @@ class ToolsViewModel @Inject constructor(
             PdfTool.GRAYSCALE -> listOf(pdf("grey").also { kit.grayscale(first, it) })
 
             PdfTool.INVERT -> listOf(pdf("inverted").also { kit.invert(first, it) })
+
+            PdfTool.TEXT_TO_PDF -> listOf(pdf("text").also { kit.textToPdf(first, it) })
+
+            PdfTool.BOOKMARKS -> listOf(pdf("bookmarked").also { kit.addBookmarks(first, it, o.text) })
+
+            PdfTool.HEALTH -> listOf(File(out, "health-check.txt").also { it.writeText(kit.healthCheck(first)) })
 
             PdfTool.IMAGES_TO_PDF -> listOf(File(out, "pictures.pdf").also { kit.imagesToPdf(input, it) })
 
