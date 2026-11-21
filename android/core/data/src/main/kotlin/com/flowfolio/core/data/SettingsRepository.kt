@@ -34,7 +34,7 @@ interface SettingsRepository {
 
     suspend fun setLibrarySort(sort: LibrarySort)
 
-    /** Every setting as text for a backup file, and the way back; the answer is how many were restored (-1: not a backup). */
+    /** Every setting as text for a backup file, and the way back: how many were restored (-1: not a backup). */
     suspend fun exportSettings(): String = ""
 
     suspend fun importSettings(text: String): Int = 0

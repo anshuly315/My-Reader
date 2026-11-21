@@ -60,32 +60,28 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
         null
     }
 
-    override fun displayName(uri: String): String? = if (isFile(uri)) {
-        File(Uri.parse(uri).path.orEmpty()).name
-    } else {
-        try {
-            resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-                if (c.moveToFirst()) c.getString(0) else null
-            } ?: Uri.parse(uri).lastPathSegment
-        } catch (_: SecurityException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
+    override fun displayName(uri: String): String? = if (isFile(uri)) fileOf(uri).name else providerName(uri)
+
+    override fun size(uri: String): Long? = if (isFile(uri)) fileOf(uri).length() else providerSize(uri)
+
+    private fun providerName(uri: String): String? = try {
+        resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        } ?: Uri.parse(uri).lastPathSegment
+    } catch (_: SecurityException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
     }
 
-    override fun size(uri: String): Long? = if (isFile(uri)) {
-        File(Uri.parse(uri).path.orEmpty()).length()
-    } else {
-        try {
-            resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
-                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
-            }
-        } catch (_: SecurityException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
+    private fun providerSize(uri: String): Long? = try {
+        resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
         }
+    } catch (_: SecurityException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
     }
 
     override fun persistReadAccess(uri: String): Boolean = if (isFile(uri)) {
@@ -109,12 +105,14 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
 
     private fun isFile(uri: String) = uri.startsWith("file:")
 
+    private fun fileOf(uri: String) = File(Uri.parse(uri).path.orEmpty())
+
     /** Every book under a plain folder, for the whole-phone scan (needs "All files access"). */
     private fun walkFiles(root: File): List<FolderFile> {
         val found = ArrayList<FolderFile>()
         val todo = ArrayDeque(listOf(root to root.name.ifBlank { DEFAULT_FOLDER }))
         var visited = 0
-        while (todo.isNotEmpty() && visited++ < MAX_FOLDERS * 4) {
+        while (todo.isNotEmpty() && visited++ < MAX_PLAIN_FOLDERS) {
             val (dir, path) = todo.removeFirst()
             for (child in dir.listFiles().orEmpty()) {
                 when {
@@ -200,5 +198,6 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
         val BOOK_EXTENSION = Regex("\\.(pdf|epub)$", RegexOption.IGNORE_CASE)
         const val DEFAULT_FOLDER = "Folder"
         const val MAX_FOLDERS = 5_000
+        const val MAX_PLAIN_FOLDERS = 20_000
     }
 }
