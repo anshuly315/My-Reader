@@ -29,6 +29,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -299,13 +301,18 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
 
         if (state.results.isNotEmpty()) {
             SectionLabel(stringResource(R.string.tools_result))
+            var previewing by remember { mutableStateOf<java.io.File?>(null) }
             state.results.take(MAX_LISTED).forEach { f ->
-                Text(
-                    "${f.name}  ·  ${sizeOf(f.length())}",
-                    style = FlowFolioType.body.copy(color = p.ink),
-                    modifier = Modifier.padding(vertical = 2.dp)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                    Text(
+                        "${f.name}  ·  ${sizeOf(f.length())}",
+                        style = FlowFolioType.body.copy(color = p.ink),
+                        modifier = Modifier.weight(1f)
+                    )
+                    FlowFolioChip(stringResource(R.string.tools_preview), false, { previewing = f })
+                }
             }
+            previewing?.let { ResultPreview(it) { previewing = null } }
             if (state.results.size > MAX_LISTED) {
                 Text("+ ${state.results.size - MAX_LISTED}", style = FlowFolioType.rowDetail.copy(color = p.ink2))
             }

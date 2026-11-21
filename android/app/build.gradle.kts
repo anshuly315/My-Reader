@@ -59,13 +59,25 @@ android {
     // outside the repo (`flowfolio.devSigning.*` in ~/.gradle/gradle.properties); without it (CI, other machines)
     // debug builds keep the SDK's own debug key.
     val devStore = providers.gradleProperty("flowfolio.devSigning.storeFile").orNull
-    val devSigning = devStore?.let {
-        signingConfigs.create("dev") {
-            storeFile = file(it)
+    // Cloud builds have no ~/.gradle/gradle.properties, so they sign with the personal sideload key kept beside the
+    // app (reader-dev.jks): every cloud APK then updates the last one in place instead of being a "different app".
+    val sharedKey = file("reader-dev.jks").takeIf { it.exists() }
+    val devSigning = when {
+        devStore != null -> signingConfigs.create("dev") {
+            storeFile = file(devStore)
             storePassword = providers.gradleProperty("flowfolio.devSigning.storePassword").get()
             keyAlias = providers.gradleProperty("flowfolio.devSigning.keyAlias").get()
             keyPassword = providers.gradleProperty("flowfolio.devSigning.keyPassword").get()
         }
+
+        sharedKey != null -> signingConfigs.create("dev") {
+            storeFile = sharedKey
+            storePassword = "readerdev"
+            keyAlias = "reader"
+            keyPassword = "readerdev"
+        }
+
+        else -> null
     }
 
     // ADR-0042: the release key, also outside the repo (`flowfolio.releaseSigning.*`). Without it a release build

@@ -197,4 +197,7 @@
     <string name="tool_link_addresses_sub">Turn web addresses in the text into tappable links.</string>
     <string name="tools_choose_pdf_image">Choose a PDF and a picture</string>
     <string name="opt_stamp_width">Width of the picture (% of the page)</string>
+    <string name="tools_preview">View</string>
+    <string name="tools_preview_close">Close</string>
+    <string name="tools_no_preview">This kind of file has no preview here. Save it to open it in another app.</string>
 </resources>
