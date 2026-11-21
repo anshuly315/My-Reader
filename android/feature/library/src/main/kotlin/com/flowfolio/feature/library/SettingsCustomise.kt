@@ -53,10 +53,10 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
         val hidden = Options.hiddenTabs(o)
         HIDEABLE_TABS.forEachIndexed { i, (route, label) ->
             if (i > 0) Divider()
-            SwitchRow(label, null, route !in hidden) { on ->
+            SwitchRow(label, null, route !in hidden, { on ->
                 val next = if (on) hidden - route else hidden + route
                 actions.onOption(Options.HIDDEN_TABS, next.joinToString(","))
-            }
+            })
         }
     }
 }
