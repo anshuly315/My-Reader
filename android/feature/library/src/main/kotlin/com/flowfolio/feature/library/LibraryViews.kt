@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.flowfolio.feature.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -65,6 +67,7 @@ import com.flowfolio.core.designsystem.detailsCoverKey
 import com.flowfolio.core.designsystem.reveal
 import com.flowfolio.core.designsystem.shelfCoverKey
 import com.flowfolio.core.model.Availability
+import com.flowfolio.core.model.Book
 import com.flowfolio.core.model.BookFormat
 import com.flowfolio.core.model.BookStorage
 import com.flowfolio.core.model.LibrarySort
@@ -257,16 +260,41 @@ internal fun LazyListScope.shelfRow(
 }
 
 /** Books as a list (`.listrow`): a small cover, title, author · format · pages, a progress bar, and where it stands. */
+@Suppress("LongParameterList")
 internal fun LazyListScope.bookList(
     keyPrefix: String,
     items: List<LibraryItem>,
     gutter: Dp,
     actions: LibraryActions,
-    dense: Boolean = false
+    dense: Boolean = false,
+    /** Names the group a book belongs to; a heading is drawn where it changes (author, first letter). */
+    groupOf: ((Book) -> String)? = null
 ) {
-    itemsIndexed(items, key = { _, entry -> "$keyPrefix-${entry.book.id}" }) { i, item ->
-        BookListRow(item, actions, Modifier.padding(horizontal = gutter).reveal(i), dense)
+    items.forEachIndexed { i, item ->
+        val group = groupOf?.invoke(item.book)
+        if (group != null && (i == 0 || groupOf(items[i - 1].book) != group)) {
+            item(key = "$keyPrefix-group-$i-$group") { GroupHeading(group, Modifier.padding(horizontal = gutter)) }
+        }
+        item(key = "$keyPrefix-${item.book.id}") {
+            BookListRow(item, actions, Modifier.padding(horizontal = gutter).reveal(i), dense)
+        }
     }
+}
+
+/** How the list names its groups for this sort: authors under AUTHOR, first letters under TITLE, none otherwise. */
+internal fun LibrarySort.groupNamer(): ((Book) -> String)? = when (this) {
+    LibrarySort.AUTHOR -> { b -> b.author?.takeIf { it.isNotBlank() } ?: "Unknown author" }
+    LibrarySort.TITLE -> { b -> b.title.trim().take(1).uppercase().ifEmpty { "#" } }
+    else -> null
+}
+
+@Composable
+private fun GroupHeading(text: String, modifier: Modifier = Modifier) {
+    androidx.compose.material3.Text(
+        text,
+        style = FlowFolioType.rowDetail.copy(color = FlowFolio.palette.ink2),
+        modifier = modifier.padding(top = 14.dp, bottom = 4.dp)
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

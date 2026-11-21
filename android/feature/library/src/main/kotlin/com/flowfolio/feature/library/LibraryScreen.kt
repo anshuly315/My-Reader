@@ -328,7 +328,7 @@ fun LibraryContent(
         if (index != null) list.animateScrollToItem(index)
         onScrolledToShelf()
     }
-    Box(Modifier.fillMaxSize().chromeStart()) {
+    Box(Modifier.fillMaxSize().chromeStart().pinchToChangeView(state.view, actions.onView)) {
         LazyColumn(
             Modifier.fillMaxSize().testTag(LibraryTestTags.GRID),
             state = list,
@@ -401,7 +401,14 @@ private fun LazyListScope.libraryBody(
 
                 state.view == LibraryView.LIST || state.view == LibraryView.CONDENSED -> {
                     item(key = "list-gap") { Spacer(Modifier.height(BODY_GAP)) }
-                    bookList("list", state.items, gutter, actions, dense = state.view == LibraryView.CONDENSED)
+                    bookList(
+                        "list",
+                        state.items,
+                        gutter,
+                        actions,
+                        dense = state.view == LibraryView.CONDENSED,
+                        groupOf = state.sort.groupNamer()
+                    )
                 }
 
                 else -> {

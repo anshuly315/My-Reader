@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -82,9 +83,9 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                 ManageTools(prefs) { managing = false }
             } else if (tool == null) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(150.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    columns = GridCells.Adaptive(132.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         bottom =
                             chrome.calculateBottomPadding() + 24.dp
@@ -166,14 +167,16 @@ private fun ToolCard(tool: PdfTool, onClick: () -> Unit) {
     val p = FlowFolio.palette
     FlowFolioCard(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
-        padding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+        padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 9.dp)
     ) {
-        Column {
-            FlowFolioGlyph(tool.glyph, null, color = p.accent, size = 26.dp)
-            Spacer(Modifier.height(10.dp))
-            Text(stringResource(tool.title), style = FlowFolioType.rowLabel.copy(color = p.ink))
-            Spacer(Modifier.height(2.dp))
-            Text(stringResource(tool.sub), style = FlowFolioType.rowDetail.copy(color = p.ink2), maxLines = 3)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FlowFolioGlyph(tool.glyph, null, color = p.accent, size = 20.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(tool.title),
+                style = FlowFolioType.rowLabel.copy(color = p.ink),
+                maxLines = 2
+            )
         }
     }
 }
