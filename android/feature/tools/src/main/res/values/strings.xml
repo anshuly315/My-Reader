@@ -184,4 +184,8 @@
     <string name="tool_health">Health check</string>
     <string name="tool_health_sub">Find what makes a PDF hard to use or share.</string>
     <string name="opt_bookmarks">One per line: title, page (for example Introduction, 3)</string>
+    <string name="tools_choose_tools">Choose which tools to show</string>
+    <string name="tools_choose_tools_sub">Hide the ones you never use. You can bring them back any time.</string>
+    <string name="tools_show_all">Show all</string>
+    <string name="tools_done">Done</string>
 </resources>

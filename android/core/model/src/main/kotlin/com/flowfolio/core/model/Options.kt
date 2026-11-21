@@ -14,6 +14,7 @@ object Options {
     const val COVER_RADIUS = "cover_radius"
     const val COVER_SIZE = "cover_size"
     const val HIDDEN_TABS = "hidden_tabs"
+    const val HIDDEN_TOOLS = "hidden_tools"
 
     val coverRadiusDp = listOf(0, 4, 8, 14, 20)
     val coverSizes = listOf(0.8f, 1f, 1.2f, 1.5f, 1.8f)
@@ -24,6 +25,8 @@ object Options {
     fun coverRadiusIndex(o: Map<String, String>) = (o[COVER_RADIUS]?.toIntOrNull() ?: 2).coerceIn(0, coverRadiusDp.lastIndex)
 
     fun coverSizeIndex(o: Map<String, String>) = (o[COVER_SIZE]?.toIntOrNull() ?: 1).coerceIn(0, coverSizes.lastIndex)
+
+    fun hiddenTools(o: Map<String, String>): Set<String> = hiddenTabs(o + (HIDDEN_TABS to o[HIDDEN_TOOLS].orEmpty()))
 
     fun hiddenTabs(o: Map<String, String>): Set<String> =
         o[HIDDEN_TABS]?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()

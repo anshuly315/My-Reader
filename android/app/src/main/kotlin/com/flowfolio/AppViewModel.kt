@@ -152,6 +152,11 @@ class AppViewModel @Inject constructor(
     }
 
     /** The Customise page's choices: glass, cover size and radius, hidden tabs. */
+    /** Saves one Customise choice (hidden tools and the like). */
+    fun setOption(key: String, value: String) {
+        viewModelScope.launch { settings.setOption(key, value) }
+    }
+
     val options: StateFlow<Map<String, String>> = settings.settings
         .map { it.options }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())

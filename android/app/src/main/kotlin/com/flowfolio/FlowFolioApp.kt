@@ -73,7 +73,9 @@ import com.flowfolio.feature.reader.ReaderScreen
 import com.flowfolio.feature.tools.AiSettingsScreen
 import com.flowfolio.feature.tools.LocalOpenAiSettings
 import com.flowfolio.feature.tools.DiscoverScreen
+import com.flowfolio.feature.tools.LocalToolPrefs
 import com.flowfolio.feature.tools.PdfToolsScreen
+import com.flowfolio.feature.tools.ToolPrefs
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Suppress("LongMethod")
@@ -93,6 +95,9 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
         LocalCoverRadius provides Options.coverRadiusDp[Options.coverRadiusIndex(options)],
         LocalCoverScale provides Options.coverSizes[Options.coverSizeIndex(options)],
         LocalHiddenTabs provides Options.hiddenTabs(options),
+        LocalToolPrefs provides ToolPrefs(Options.hiddenTools(options)) {
+            appViewModel.setOption(Options.HIDDEN_TOOLS, it.joinToString(","))
+        },
         LocalGlassStyle provides GlassStyle(
             tint = palette.surface.copy(alpha = glass.tint),
             blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp

@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -57,7 +58,12 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ai by viewModel.ai.collectAsStateWithLifecycle()
     val tool = state.tool
+    val prefs = LocalToolPrefs.current
+    var managing by androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
     BackHandler(enabled = tool != null) { viewModel.close() }
+    BackHandler(enabled = managing && tool == null) { managing = false }
     val insets = WindowInsets.safeDrawing.asPaddingValues()
     val chrome = LocalChromePadding.current
     Box(Modifier.fillMaxSize().chromeStart()) {
@@ -70,7 +76,9 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                 backLabel = stringResource(R.string.tools_back),
                 onBack = if (tool == null) null else ({ viewModel.close() })
             )
-            if (tool == null) {
+            if (tool == null && managing) {
+                ManageTools(prefs) { managing = false }
+            } else if (tool == null) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(150.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -82,7 +90,12 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) { AiCard(ai.preset.label, ai.ready, onOpenAi) }
                     item(span = { GridItemSpan(maxLineSpan) }) { DiscoverCard(onOpenDiscover) }
-                    items(PdfTool.entries.toList()) { t -> ToolCard(t) { viewModel.open(t) } }
+                    item(span = { GridItemSpan(maxLineSpan) }) { ChooseToolsCard { managing = true } }
+                    items(
+                        PdfTool.entries.filter {
+                            it.name !in prefs.hidden
+                        }
+                    ) { t -> ToolCard(t) { viewModel.open(t) } }
                 }
             } else {
                 ToolDetail(tool, state, viewModel, Modifier.weight(1f))
@@ -109,6 +122,21 @@ private fun AiCard(provider: String, ready: Boolean, onClick: () -> Unit) {
                     style = FlowFolioType.rowDetail.copy(color = if (ready) p.ink2 else p.accent)
                 )
             }
+        }
+    }
+}
+
+/** The way into the list that shows or hides each tool. */
+@Composable
+private fun ChooseToolsCard(onClick: () -> Unit) {
+    val p = FlowFolio.palette
+    FlowFolioCard(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        padding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+    ) {
+        Column {
+            Text(stringResource(R.string.tools_choose_tools), style = FlowFolioType.rowLabel.copy(color = p.ink))
+            Text(stringResource(R.string.tools_choose_tools_sub), style = FlowFolioType.rowDetail.copy(color = p.ink2))
         }
     }
 }
