@@ -23,7 +23,8 @@ android {
         buildConfigField("boolean", "MEASUREMENT_HOOKS", "false")
         // ADR-0057: the processor types FlowFolio ships for. 32-bit x86 (53 MB that some prebuilt libraries bring) is
         // left out: no phone uses it, and x86_64 covers emulators.
-        ndk { abiFilters += SHIPPED_ABIS }
+        // -Pflowfolio.abis=arm64-v8a builds for one processor type only: the cloud build uses it to keep the APK small.
+        ndk { abiFilters += (providers.gradleProperty("flowfolio.abis").orNull?.split(",") ?: SHIPPED_ABIS) }
     }
 
     // ADR-0057: a release is also built as one APK per processor type, beside the universal APK, so a phone downloads
