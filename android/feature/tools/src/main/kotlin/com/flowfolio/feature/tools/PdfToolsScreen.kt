@@ -320,6 +320,18 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
             }, number = true)
         }
 
+        PdfTool.SPLIT_SIZE -> ToolField(stringResource(R.string.opt_size_mb), o.every, { v ->
+            vm.options { it.copy(every = v) }
+        }, number = true)
+
+        PdfTool.HEADER, PdfTool.FOOTER -> ToolField(stringResource(R.string.opt_header_text), o.text, { v ->
+            vm.options { it.copy(text = v) }
+        })
+
+        PdfTool.REDACT -> ToolField(stringResource(R.string.opt_redact_words), o.text, { v ->
+            vm.options { it.copy(text = v) }
+        })
+
         PdfTool.NUMBERS -> ToolField(stringResource(R.string.opt_start), o.start, { v ->
             vm.options { it.copy(start = v) }
         }, number = true)

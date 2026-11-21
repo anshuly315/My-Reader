@@ -4,7 +4,9 @@
     "LongParameterList",
     "SwallowedException",
     "LoopWithTooManyJumpStatements",
-    "MaxLineLength"
+    "MaxLineLength",
+    "LargeClass",
+    "ktlint:standard:max-line-length"
 )
 
 package com.flowfolio.core.pdftools
@@ -504,6 +506,348 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         return files
     }
 
+    /** Fits every page on an A4 sheet, centred and shrunk or grown to fit. */
+    fun scaleToA4(input: File, output: File) {
+        load(input).use2 { src ->
+            PDDocument().use2 { out ->
+                val layer = com.tom_roush.pdfbox.multipdf.LayerUtility(out)
+                val sheet = PDRectangle.A4
+                for (i in 0 until src.numberOfPages) {
+                    val box = src.getPage(i).mediaBox
+                    val page = PDPage(sheet)
+                    out.addPage(page)
+                    val scale = minOf(sheet.width / box.width, sheet.height / box.height)
+                    PDPageContentStream(out, page, PDPageContentStream.AppendMode.APPEND, true).use { cs ->
+                        cs.transform(
+                            com.tom_roush.pdfbox.util.Matrix.getTranslateInstance(
+                                (sheet.width - box.width * scale) / 2,
+                                (sheet.height - box.height * scale) / 2
+                            )
+                        )
+                        cs.transform(com.tom_roush.pdfbox.util.Matrix.getScaleInstance(scale, scale))
+                        cs.drawForm(layer.importPageAsForm(src, i))
+                    }
+                }
+                save(out, output)
+            }
+        }
+    }
+
+    /** Orders pages two to a sheet so that, printed double-sided and folded, they read as a booklet. */
+    fun booklet(input: File, output: File) {
+        load(input).use2 { src ->
+            PDDocument().use2 { out ->
+                val layer = com.tom_roush.pdfbox.multipdf.LayerUtility(out)
+                val n = src.numberOfPages
+                val padded = (n + 3) / 4 * 4
+                val first = src.getPage(0).mediaBox
+                val sheet = PDRectangle(first.width * 2, first.height)
+                val order = mutableListOf<Int>()
+                for (s in 0 until padded / 4) {
+                    order += listOf(padded - 1 - 2 * s, 2 * s, 2 * s + 1, padded - 2 - 2 * s)
+                }
+                order.chunked(2).forEach { pair ->
+                    val page = PDPage(sheet)
+                    out.addPage(page)
+                    PDPageContentStream(out, page, PDPageContentStream.AppendMode.APPEND, true).use { cs ->
+                        pair.forEachIndexed { slot, idx ->
+                            if (idx >= n) return@forEachIndexed
+                            val box = src.getPage(idx).mediaBox
+                            val scale = minOf(first.width / box.width, first.height / box.height)
+                            cs.saveGraphicsState()
+                            cs.transform(
+                                com.tom_roush.pdfbox.util.Matrix.getTranslateInstance(
+                                    slot * first.width + (first.width - box.width * scale) / 2,
+                                    (first.height - box.height * scale) / 2
+                                )
+                            )
+                            cs.transform(com.tom_roush.pdfbox.util.Matrix.getScaleInstance(scale, scale))
+                            cs.drawForm(layer.importPageAsForm(src, idx))
+                            cs.restoreGraphicsState()
+                        }
+                    }
+                }
+                save(out, output)
+            }
+        }
+    }
+
+    /** Cuts the file into parts that are each about [maxMegabytes] or smaller. */
+    fun splitBySize(input: File, outDir: File, maxMegabytes: Int): List<File> {
+        require(maxMegabytes > 0) { "Enter a size in megabytes." }
+        val pages = load(input).use2 { it.numberOfPages }
+        val limit = maxMegabytes * BYTES_PER_MB
+        val parts = ((input.length() + limit - 1) / limit).toInt().coerceAtLeast(1)
+        return split(input, outDir, ((pages + parts - 1) / parts).coerceAtLeast(1))
+    }
+
+    /** One file per top-level bookmark (chapter), named after it. */
+    fun splitByBookmarks(input: File, outDir: File): List<File> {
+        outDir.mkdirs()
+        val result = mutableListOf<File>()
+        load(input).use2 { d ->
+            val outline = d.documentCatalog.documentOutline ?: throw PdfToolException("This document has no bookmarks.")
+            val starts = mutableListOf<Pair<String, Int>>()
+            var item = outline.firstChild
+            while (item != null) {
+                val page = runCatching { item!!.findDestinationPage(d) }.getOrNull()
+                val index = page?.let { d.pages.indexOf(it) } ?: -1
+                if (index >= 0) starts += (item.title ?: "Part ${starts.size + 1}") to index
+                item = item.nextSibling
+            }
+            val sorted = starts.sortedBy { it.second }.distinctBy { it.second }
+            if (sorted.isEmpty()) throw PdfToolException("The bookmarks do not point to pages.")
+            sorted.forEachIndexed { i, (title, start) ->
+                val end = if (i + 1 < sorted.size) sorted[i + 1].second - 1 else d.numberOfPages - 1
+                val name = "%02d-%s".format(
+                    i + 1,
+                    title.replace(Regex("[^\\p{L}\\p{N} ._-]"), "").trim().take(60).ifEmpty {
+                        "part"
+                    }
+                )
+                val f = File(outDir, "$name.pdf")
+                extractPages(input, f, (start + 1..end + 1).toList())
+                result += f
+            }
+        }
+        return result
+    }
+
+    /** Takes the pictures out of every page, leaving the text. Pictures inside other drawings are kept. */
+    fun removeImages(input: File, output: File) {
+        load(input).use2 { d ->
+            for (page in d.pages) {
+                val res = page.resources ?: continue
+                val dict = res.cosObject.getDictionaryObject(com.tom_roush.pdfbox.cos.COSName.XOBJECT)
+                    as? com.tom_roush.pdfbox.cos.COSDictionary ?: continue
+                res.xObjectNames.filter { res.getXObject(it) is PDImageXObject }.forEach { dict.removeItem(it) }
+            }
+            save(d, output)
+        }
+    }
+
+    /** Removes notes, highlights and drawn marks; links stay so the contents still work. */
+    fun removeAnnotations(input: File, output: File) {
+        load(input).use2 { d ->
+            for (page in d.pages) {
+                page.annotations =
+                    page.annotations.filterIsInstance<com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink>()
+            }
+            save(d, output)
+        }
+    }
+
+    /** Saves the files attached inside the document. */
+    fun extractAttachments(input: File, outDir: File): List<File> {
+        outDir.mkdirs()
+        val files = mutableListOf<File>()
+        load(input).use2 { d ->
+            fun walk(
+                node:
+                com.tom_roush.pdfbox.pdmodel.common.PDNameTreeNode<com.tom_roush.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification>
+            ) {
+                node.names?.forEach { (name, spec) ->
+                    val bytes = spec.embeddedFile?.toByteArray() ?: return@forEach
+                    val f = File(outDir, name.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifEmpty { "attachment" })
+                    f.writeBytes(bytes)
+                    files += f
+                }
+                node.kids?.forEach { walk(it) }
+            }
+            d.documentCatalog.names?.embeddedFiles?.let { walk(it) }
+        }
+        if (files.isEmpty()) throw PdfToolException("This document has no attached files.")
+        return files
+    }
+
+    /** Lays the first page of [top] over every page of [base]. */
+    fun overlay(base: File, top: File, output: File) {
+        load(base).use2 { b ->
+            load(top).use2 { t ->
+                val layer = com.tom_roush.pdfbox.multipdf.LayerUtility(b)
+                val form = layer.importPageAsForm(t, 0)
+                for (page in b.pages) {
+                    PDPageContentStream(b, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
+                        val box = page.mediaBox
+                        val tb = t.getPage(0).mediaBox
+                        val scale = minOf(box.width / tb.width, box.height / tb.height)
+                        cs.transform(com.tom_roush.pdfbox.util.Matrix.getScaleInstance(scale, scale))
+                        cs.drawForm(form)
+                    }
+                }
+                save(b, output)
+            }
+        }
+    }
+
+    /** Writes [text] at the top or bottom of every page; {n} is the page number and {total} the page count. */
+    fun headerFooter(input: File, output: File, text: String, top: Boolean) {
+        require(text.isNotBlank()) { "Enter the text to add." }
+        load(input).use2 { d ->
+            val font = PDType1Font.HELVETICA
+            val total = d.numberOfPages
+            d.pages.forEachIndexed { i, page ->
+                val line = text.replace("{n}", (i + 1).toString()).replace("{total}", total.toString())
+                val box = page.mediaBox
+                val width = font.getStringWidth(line) / FONT_UNITS * HEADER_SIZE
+                PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
+                    cs.beginText()
+                    cs.setFont(font, HEADER_SIZE)
+                    cs.newLineAtOffset((box.width - width) / 2, if (top) box.height - HEADER_MARGIN else HEADER_MARGIN)
+                    cs.showText(line)
+                    cs.endText()
+                }
+            }
+            save(d, output)
+        }
+    }
+
+    /** Lists, page by page, the lines that are in one document and not the other. */
+    fun compare(a: File, b: File): String {
+        fun lines(f: File): List<List<String>> = load(f).use2 { d ->
+            val stripper = PDFTextStripper()
+            (1..d.numberOfPages).map { p ->
+                stripper.startPage = p
+                stripper.endPage = p
+                stripper.getText(d).lines().map { it.trim() }.filter { it.isNotEmpty() }
+            }
+        }
+        val x = lines(a)
+        val y = lines(b)
+        val sb = StringBuilder("Comparing ${a.name} (A) with ${b.name} (B)\n")
+        var same = true
+        for (i in 0 until maxOf(x.size, y.size)) {
+            val la = x.getOrElse(i) { emptyList() }
+            val lb = y.getOrElse(i) { emptyList() }
+            val onlyA = la.filter { it !in lb.toSet() }
+            val onlyB = lb.filter { it !in la.toSet() }
+            if (onlyA.isEmpty() && onlyB.isEmpty()) continue
+            same = false
+            sb.append("\nPage ${i + 1}\n")
+            onlyA.forEach { sb.append("  A only: $it\n") }
+            onlyB.forEach { sb.append("  B only: $it\n") }
+        }
+        if (same) sb.append("\nThe text is the same on every page.\n")
+        if (x.size != y.size) sb.append("\nA has ${x.size} pages, B has ${y.size}.\n")
+        return sb.toString()
+    }
+
+    /**
+     * Blacks out every place [terms] appear. The pages are redrawn as pictures with the boxes burned in, so the
+     * hidden words are gone from the file and cannot be copied out. The result is no longer searchable.
+     */
+    fun redact(input: File, output: File, terms: List<String>, dpi: Int = RASTER_DPI) {
+        val wanted = terms.map { it.trim() }.filter { it.isNotEmpty() }
+        require(wanted.isNotEmpty()) { "Enter the words to black out, separated by commas." }
+        val boxes = mutableMapOf<Int, MutableList<android.graphics.RectF>>()
+        var hits = 0
+        load(input).use2 { d ->
+            for (p in 1..d.numberOfPages) {
+                val stripper = object : PDFTextStripper() {
+                    override fun writeString(
+                        text: String,
+                        positions: MutableList<com.tom_roush.pdfbox.text.TextPosition>
+                    ) {
+                        for (term in wanted) {
+                            var from = text.indexOf(term, ignoreCase = true)
+                            while (from >= 0) {
+                                val span = positions.subList(from, minOf(from + term.length, positions.size))
+                                if (span.isNotEmpty()) {
+                                    val left = span.minOf { it.xDirAdj }
+                                    val right = span.maxOf { it.xDirAdj + it.widthDirAdj }
+                                    val top = span.minOf { it.yDirAdj - it.heightDir }
+                                    val bottom = span.maxOf { it.yDirAdj }
+                                    boxes.getOrPut(p) {
+                                        mutableListOf()
+                                    }.add(android.graphics.RectF(left, top, right, bottom))
+                                    hits++
+                                }
+                                from = text.indexOf(term, from + term.length, ignoreCase = true)
+                            }
+                        }
+                    }
+                }
+                stripper.startPage = p
+                stripper.endPage = p
+                stripper.getText(d)
+            }
+        }
+        if (hits == 0) throw PdfToolException("None of those words were found.")
+        val k = dpi / PDF_DPI.toFloat()
+        rasterize(input, output, dpi) { bmp, page ->
+            val c = android.graphics.Canvas(bmp)
+            val paint = android.graphics.Paint().apply { color = Color.BLACK }
+            boxes[page]?.forEach { r ->
+                c.drawRect(r.left * k - 1, r.top * k - 1, r.right * k + 1, r.bottom * k + 1, paint)
+            }
+        }
+    }
+
+    /** Redraws every page in grey tones (pictures; the text stops being searchable). */
+    fun grayscale(input: File, output: File) = rasterize(
+        input,
+        output,
+        RASTER_DPI,
+        colorFilter = android.graphics.ColorMatrix().apply {
+            setSaturation(0f)
+        }
+    ) { _, _ -> }
+
+    /** Redraws every page with the colours reversed, which saves ink and suits night reading. */
+    fun invert(input: File, output: File) = rasterize(
+        input,
+        output,
+        RASTER_DPI,
+        colorFilter = android.graphics.ColorMatrix(
+            floatArrayOf(-1f, 0f, 0f, 0f, 255f, 0f, -1f, 0f, 0f, 255f, 0f, 0f, -1f, 0f, 255f, 0f, 0f, 0f, 1f, 0f)
+        )
+    ) { _, _ -> }
+
+    private fun rasterize(
+        input: File,
+        output: File,
+        dpi: Int,
+        colorFilter: android.graphics.ColorMatrix? = null,
+        draw: (Bitmap, Int) -> Unit
+    ) {
+        ParcelFileDescriptor.open(input, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+            PdfRenderer(fd).use { renderer ->
+                PDDocument().use2 { d ->
+                    for (n in 0 until renderer.pageCount) {
+                        renderer.openPage(n).use { page ->
+                            val w = (page.width * dpi / PDF_DPI).coerceAtLeast(1)
+                            val h = (page.height * dpi / PDF_DPI).coerceAtLeast(1)
+                            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply {
+                                eraseColor(Color.WHITE)
+                            }
+                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            val shown = if (colorFilter == null) {
+                                bmp
+                            } else {
+                                Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                                    val paint = android.graphics.Paint().apply {
+                                        setColorFilter(android.graphics.ColorMatrixColorFilter(colorFilter))
+                                    }
+                                    android.graphics.Canvas(it).drawBitmap(bmp, 0f, 0f, paint)
+                                    bmp.recycle()
+                                }
+                            }
+                            draw(shown, n + 1)
+                            val pdfPage = PDPage(PDRectangle(page.width.toFloat(), page.height.toFloat()))
+                            d.addPage(pdfPage)
+                            val image = JPEGFactory.createFromImage(d, shown, RASTER_QUALITY)
+                            PDPageContentStream(d, pdfPage).use {
+                                it.drawImage(image, 0f, 0f, page.width.toFloat(), page.height.toFloat())
+                            }
+                            shown.recycle()
+                        }
+                    }
+                    save(d, output)
+                }
+            }
+        }
+    }
+
     private fun checked(pages: List<Int>, count: Int): List<Int> {
         require(pages.isNotEmpty()) { "No pages chosen." }
         pages.firstOrNull {
@@ -517,6 +861,12 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_SIZE = 10f
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
+        const val BYTES_PER_MB = 1024L * 1024L
+        const val FONT_UNITS = 1000f
+        const val HEADER_SIZE = 10f
+        const val HEADER_MARGIN = 24f
+        const val RASTER_DPI = 150
+        const val RASTER_QUALITY = 0.85f
         const val JPEG_QUALITY = 92
     }
 }

@@ -36,7 +36,21 @@ enum class PdfTool(
     N_UP(R.string.tool_nup, R.string.tool_nup_sub, Glyph.Page),
     SINGLE_PAGE(R.string.tool_single, R.string.tool_single_sub, Glyph.Page),
     EXTRACT_IMAGES(R.string.tool_extract_images, R.string.tool_extract_images_sub, Glyph.Cover),
-    CONVERT_BOOK(R.string.tool_convert_book, R.string.tool_convert_book_sub, Glyph.OpenBook, ToolInput.BOOK);
+    CONVERT_BOOK(R.string.tool_convert_book, R.string.tool_convert_book_sub, Glyph.OpenBook, ToolInput.BOOK),
+    SCALE_A4(R.string.tool_scale_a4, R.string.tool_scale_a4_sub, Glyph.Page),
+    BOOKLET(R.string.tool_booklet, R.string.tool_booklet_sub, Glyph.Page),
+    SPLIT_SIZE(R.string.tool_split_size, R.string.tool_split_size_sub, Glyph.Sort),
+    SPLIT_BOOKMARKS(R.string.tool_split_bookmarks, R.string.tool_split_bookmarks_sub, Glyph.Sort),
+    REMOVE_IMAGES(R.string.tool_remove_images, R.string.tool_remove_images_sub, Glyph.Trash),
+    REMOVE_ANNOTATIONS(R.string.tool_remove_annotations, R.string.tool_remove_annotations_sub, Glyph.Trash),
+    EXTRACT_ATTACHMENTS(R.string.tool_extract_attachments, R.string.tool_extract_attachments_sub, Glyph.Cover),
+    OVERLAY(R.string.tool_overlay, R.string.tool_overlay_sub, Glyph.Page, ToolInput.MANY_PDF),
+    HEADER(R.string.tool_header, R.string.tool_header_sub, Glyph.TextSize),
+    FOOTER(R.string.tool_footer, R.string.tool_footer_sub, Glyph.TextSize),
+    COMPARE(R.string.tool_compare, R.string.tool_compare_sub, Glyph.Select, ToolInput.MANY_PDF),
+    REDACT(R.string.tool_redact, R.string.tool_redact_sub, Glyph.Select),
+    GRAYSCALE(R.string.tool_grayscale, R.string.tool_grayscale_sub, Glyph.Page),
+    INVERT(R.string.tool_invert, R.string.tool_invert_sub, Glyph.Page);
 
     /** Whether the tool lets the reader choose pages. */
     val usesPages: Boolean get() = this in setOf(EXTRACT, REMOVE, ROTATE, REORDER, PDF_TO_IMAGES)

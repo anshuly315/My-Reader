@@ -53,7 +53,12 @@ class ToolsViewModel @Inject constructor(
     private val work get() = File(context.cacheDir, "pdf-tools").apply { mkdirs() }
 
     fun open(tool: PdfTool) {
-        _state.value = ToolsState(tool = tool)
+        val text = when (tool) {
+            PdfTool.HEADER, PdfTool.FOOTER -> "{n} / {total}"
+            PdfTool.REDACT -> ""
+            else -> ToolOptions().text
+        }
+        _state.value = ToolsState(tool = tool, options = ToolOptions(text = text))
     }
 
     fun close() {
@@ -216,6 +221,40 @@ class ToolsViewModel @Inject constructor(
 
                 else -> throw bad("That format is not supported yet. Supported: TXT, HTML, FB2, RTF, CBZ.")
             }
+
+            PdfTool.SCALE_A4 -> listOf(pdf("a4").also { kit.scaleToA4(first, it) })
+
+            PdfTool.BOOKLET -> listOf(pdf("booklet").also { kit.booklet(first, it) })
+
+            PdfTool.SPLIT_SIZE -> kit.splitBySize(first, out, o.every.toIntOrNull() ?: 0)
+
+            PdfTool.SPLIT_BOOKMARKS -> kit.splitByBookmarks(first, out)
+
+            PdfTool.REMOVE_IMAGES -> listOf(pdf("no-images").also { kit.removeImages(first, it) })
+
+            PdfTool.REMOVE_ANNOTATIONS -> listOf(pdf("no-notes").also { kit.removeAnnotations(first, it) })
+
+            PdfTool.EXTRACT_ATTACHMENTS -> kit.extractAttachments(first, out)
+
+            PdfTool.OVERLAY -> {
+                if (input.size != 2) throw bad("Choose exactly two PDFs: the page first, then the one to lay over it.")
+                listOf(pdf("overlay").also { kit.overlay(first, input[1], it) })
+            }
+
+            PdfTool.HEADER -> listOf(pdf("header").also { kit.headerFooter(first, it, o.text, top = true) })
+
+            PdfTool.FOOTER -> listOf(pdf("footer").also { kit.headerFooter(first, it, o.text, top = false) })
+
+            PdfTool.COMPARE -> {
+                if (input.size != 2) throw bad("Choose exactly two PDFs to compare.")
+                listOf(File(out, "comparison.txt").also { it.writeText(kit.compare(first, input[1])) })
+            }
+
+            PdfTool.REDACT -> listOf(pdf("redacted").also { kit.redact(first, it, o.text.split(',')) })
+
+            PdfTool.GRAYSCALE -> listOf(pdf("grey").also { kit.grayscale(first, it) })
+
+            PdfTool.INVERT -> listOf(pdf("inverted").also { kit.invert(first, it) })
 
             PdfTool.IMAGES_TO_PDF -> listOf(File(out, "pictures.pdf").also { kit.imagesToPdf(input, it) })
 

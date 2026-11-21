@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -172,5 +173,100 @@ class PdfToolkitTest {
     @Test
     fun extractImagesWithNoneSaysSo() {
         assertThrows(PdfToolException::class.java) { kit.extractImages(pdf("z.pdf", 1), File(tmp.root, "imgs")) }
+    }
+
+    private fun textPdf(name: String, vararg pageText: String): File {
+        val f = tmp.newFile(name)
+        PDDocument().use { d ->
+            pageText.forEach { t ->
+                val page = PDPage()
+                d.addPage(page)
+                PDPageContentStream(d, page).use { cs ->
+                    cs.beginText()
+                    cs.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 12f)
+                    cs.newLineAtOffset(72f, 700f)
+                    cs.showText(t)
+                    cs.endText()
+                }
+            }
+            d.save(f)
+        }
+        return f
+    }
+
+    @Test
+    fun scaleToA4MakesA4Pages() {
+        val out = File(tmp.root, "a4.pdf")
+        kit.scaleToA4(pdf("a.pdf", 2), out)
+        PDDocument.load(out).use { d ->
+            assertEquals(2, d.numberOfPages)
+            assertEquals(595f, d.getPage(0).mediaBox.width, 1f)
+        }
+    }
+
+    @Test
+    fun bookletPadsToFourAndPutsTwoOnASheet() {
+        val out = File(tmp.root, "bk.pdf")
+        kit.booklet(pdf("b.pdf", 5), out)
+        assertEquals(4, pageCount(out))
+    }
+
+    @Test
+    fun splitBySizeMakesMoreThanOnePartForABigLimitFile() {
+        val parts = kit.splitBySize(pdf("big.pdf", 6), File(tmp.root, "parts"), 1)
+        assertEquals(1, parts.size)
+    }
+
+    @Test
+    fun noBookmarksSaysSo() {
+        assertThrows(PdfToolException::class.java) { kit.splitByBookmarks(pdf("nb.pdf", 2), File(tmp.root, "chap")) }
+    }
+
+    @Test
+    fun removeImagesAndAnnotationsKeepPages() {
+        val a = File(tmp.root, "ri.pdf")
+        val b = File(tmp.root, "ra.pdf")
+        kit.removeImages(pdf("i.pdf", 2), a)
+        kit.removeAnnotations(pdf("n.pdf", 2), b)
+        assertEquals(2, pageCount(a))
+        assertEquals(2, pageCount(b))
+    }
+
+    @Test
+    fun noAttachmentsSaysSo() {
+        assertThrows(PdfToolException::class.java) { kit.extractAttachments(pdf("at.pdf", 1), File(tmp.root, "att")) }
+    }
+
+    @Test
+    fun overlayKeepsBasePageCount() {
+        val out = File(tmp.root, "ov.pdf")
+        kit.overlay(pdf("base.pdf", 3), textPdf("top.pdf", "STAMP"), out)
+        assertEquals(3, pageCount(out))
+        assertTrue(kit.extractText(out).contains("STAMP"))
+    }
+
+    @Test
+    fun headerAndFooterAddText() {
+        val out = File(tmp.root, "hf.pdf")
+        kit.headerFooter(pdf("h.pdf", 2), out, "Page {n} of {total}", top = false)
+        val text = kit.extractText(out)
+        assertTrue(text.contains("Page 1 of 2") && text.contains("Page 2 of 2"))
+    }
+
+    @Test
+    fun compareReportsDifferences() {
+        val report = kit.compare(textPdf("c1.pdf", "same", "left"), textPdf("c2.pdf", "same", "right"))
+        assertTrue(report.contains("Page 2") && report.contains("A only: left") && report.contains("B only: right"))
+        assertTrue(kit.compare(textPdf("d1.pdf", "x"), textPdf("d2.pdf", "x")).contains("same on every page"))
+    }
+
+    @Test
+    fun redactRejectsWordsThatAreNotThere() {
+        assertThrows(PdfToolException::class.java) {
+            kit.redact(textPdf("r.pdf", "hello world"), File(tmp.root, "r2.pdf"), listOf("secret"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            kit.redact(textPdf("r3.pdf", "hi"), File(tmp.root, "r4.pdf"), listOf(" "))
+        }
     }
 }
