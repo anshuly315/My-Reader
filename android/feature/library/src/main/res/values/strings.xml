@@ -894,4 +894,6 @@
     <string name="library_filling">Looking up books…</string>
     <string name="library_fill_progress">Looked up %1$d of %2$d books…</string>
     <string name="library_filled">Updated %1$d books.</string>
+    <string name="library_phone">Look for books on the whole phone</string>
+    <string name="library_phone_detail">Asks again whether to keep books in place or copy them, then scans.</string>
 </resources>

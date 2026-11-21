@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import android.provider.OpenableColumns
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import java.io.FileNotFoundException
 import javax.inject.Inject
 
@@ -59,31 +60,43 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
         null
     }
 
-    override fun displayName(uri: String): String? = try {
-        resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-            if (c.moveToFirst()) c.getString(0) else null
-        } ?: Uri.parse(uri).lastPathSegment
-    } catch (_: SecurityException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
-    }
-
-    override fun size(uri: String): Long? = try {
-        resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
-            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+    override fun displayName(uri: String): String? = if (isFile(uri)) {
+        File(Uri.parse(uri).path.orEmpty()).name
+    } else {
+        try {
+            resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            } ?: Uri.parse(uri).lastPathSegment
+        } catch (_: SecurityException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
         }
-    } catch (_: SecurityException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
     }
 
-    override fun persistReadAccess(uri: String): Boolean = try {
-        resolver.takePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    override fun size(uri: String): Long? = if (isFile(uri)) {
+        File(Uri.parse(uri).path.orEmpty()).length()
+    } else {
+        try {
+            resolver.query(Uri.parse(uri), arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+            }
+        } catch (_: SecurityException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    override fun persistReadAccess(uri: String): Boolean = if (isFile(uri)) {
         true
-    } catch (_: SecurityException) {
-        false
+    } else {
+        try {
+            resolver.takePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     override fun releaseReadAccess(uri: String) {
@@ -94,8 +107,35 @@ class AndroidDocumentSource @Inject constructor(@ApplicationContext private val 
         }
     }
 
+    private fun isFile(uri: String) = uri.startsWith("file:")
+
+    /** Every book under a plain folder, for the whole-phone scan (needs "All files access"). */
+    private fun walkFiles(root: File): List<FolderFile> {
+        val found = ArrayList<FolderFile>()
+        val todo = ArrayDeque(listOf(root to root.name.ifBlank { DEFAULT_FOLDER }))
+        var visited = 0
+        while (todo.isNotEmpty() && visited++ < MAX_FOLDERS * 4) {
+            val (dir, path) = todo.removeFirst()
+            for (child in dir.listFiles().orEmpty()) {
+                when {
+                    child.name.startsWith(".") || child.name == "Android" -> Unit
+
+                    child.isDirectory -> todo += child to "$path/${child.name}"
+
+                    BOOK_EXTENSION.containsMatchIn(child.name) ->
+                        found += FolderFile(Uri.fromFile(child).toString(), path)
+                }
+            }
+        }
+        return found
+    }
+
     override fun listFolder(treeUri: String): List<FolderFile>? = try {
-        walk(Uri.parse(treeUri))
+        if (isFile(treeUri)) {
+            File(Uri.parse(treeUri).path.orEmpty()).takeIf { it.isDirectory && it.canRead() }?.let(::walkFiles)
+        } else {
+            walk(Uri.parse(treeUri))
+        }
     } catch (_: SecurityException) {
         null
     } catch (_: IllegalArgumentException) {

@@ -42,8 +42,28 @@ class AppViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val reader: ReaderRepository,
     private val flow: DynamicFlow,
-    private val updates: Updates
+    private val updates: Updates,
+    private val folders: com.flowfolio.core.data.FolderSync
 ) : ViewModel() {
+    /** True until the reader has answered the first-start question about the phone's books. */
+    val askAboutPhone: StateFlow<Boolean> = settings.settings
+        .map { it.options[PHONE_ASKED] != "1" }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    /**
+     * The first-start answer: look for books across the phone and keep them in place or copy them in; [mode] null is
+     * "not now". Needs "All files access", which the dialog has asked for already.
+     */
+    fun answerPhone(mode: com.flowfolio.core.model.StorageMode?) {
+        viewModelScope.launch {
+            settings.setOption(PHONE_ASKED, "1")
+            if (mode == null) return@launch
+            settings.setStorageMode(mode)
+            folders.remember(PHONE_ROOT, mode, emptyList())
+            folders.sync(inPlaceOnly = false)
+        }
+    }
+
     /** Dynamic Flow's notices for the app's banner (ADR-0045); the scan question is a dialog of its own. */
     val flowNotices: Flow<FlowNotice> = flow.notices.filter { it !is FlowNotice.ScanAsk }
 
@@ -151,7 +171,6 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    /** The Customise page's choices: glass, cover size and radius, hidden tabs. */
     /** Saves one Customise choice (hidden tools and the like). */
     fun setOption(key: String, value: String) {
         viewModelScope.launch { settings.setOption(key, value) }
@@ -233,3 +252,6 @@ class AppViewModel @Inject constructor(
 }
 
 private const val STOP_MS = 5_000L
+private const val PHONE_ASKED = "phone_scan_asked"
+private val PHONE_ROOT: String get() =
+    android.net.Uri.fromFile(android.os.Environment.getExternalStorageDirectory()).toString()

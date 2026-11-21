@@ -89,7 +89,6 @@ import dev.chrisbanes.haze.HazePerformanceMode
 import dev.chrisbanes.haze.LocalHazePerformanceMode
 import dev.chrisbanes.haze.rememberHazeState
 
-/** The five top-level destinations the tab bar (folded) and the rail (unfolded) switch between (ADR-0052). */
 /** Routes of the tabs the reader chose to hide on the Customise page (Settings never hides). */
 val LocalHiddenTabs = androidx.compose.runtime.staticCompositionLocalOf<Set<String>> { emptySet() }
 

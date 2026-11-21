@@ -78,6 +78,8 @@ internal fun BackupRows(actions: SettingsActions) {
         }
     }
     Divider()
+    ActionRow(R.string.library_phone, R.string.library_phone_detail) { actions.onOption("phone_scan_asked", "0") }
+    Divider()
     ActionRow(R.string.library_fill, R.string.library_fill_detail) {
         scope.launch {
             message = context.getString(R.string.library_filling)

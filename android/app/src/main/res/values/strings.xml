@@ -71,4 +71,9 @@
     <string name="widget_narrator_previous">Back</string>
     <string name="widget_narrator_next">Forward</string>
     <string name="widget_narrator_speed">%1$s×</string>
+    <string name="phone_title">Find the books on this phone?</string>
+    <string name="phone_body">FlowFolio can look through your whole phone for PDF and EPUB books. Keep them where they are and just read them from there, or copy each one into the app. Android will ask you to allow \"All files access\".</string>
+    <string name="phone_not_now">Not now</string>
+    <string name="phone_copy">Copy into app</string>
+    <string name="phone_keep">Keep in place</string>
 </resources>

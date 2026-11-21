@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
@@ -34,22 +35,21 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.flowfolio.core.data.MarkKind
 import com.flowfolio.core.designsystem.FlowFolio
+import com.flowfolio.core.designsystem.FlowFolioType
 import com.flowfolio.core.designsystem.GlassStyle
+import com.flowfolio.core.designsystem.LocalBookOpener
 import com.flowfolio.core.designsystem.LocalCoverRadius
 import com.flowfolio.core.designsystem.LocalCoverScale
-import com.flowfolio.core.designsystem.LocalGlassStyle
-import com.flowfolio.core.model.GlassMode
-import com.flowfolio.core.model.Options
-import androidx.compose.ui.unit.dp
-import com.flowfolio.core.designsystem.FlowFolioType
-import com.flowfolio.core.designsystem.LocalBookOpener
 import com.flowfolio.core.designsystem.LocalDestinationScope
+import com.flowfolio.core.designsystem.LocalGlassStyle
 import com.flowfolio.core.designsystem.LocalSharedTransition
 import com.flowfolio.core.designsystem.Motion
 import com.flowfolio.core.designsystem.ScreenEntrance
 import com.flowfolio.core.designsystem.SpotlightHost
 import com.flowfolio.core.designsystem.clearOfChrome
 import com.flowfolio.core.designsystem.reveal
+import com.flowfolio.core.model.GlassMode
+import com.flowfolio.core.model.Options
 import com.flowfolio.feature.library.AnnotationsScreen
 import com.flowfolio.feature.library.AnnotationsViewModel
 import com.flowfolio.feature.library.BookAnnotationsScreen
@@ -71,8 +71,8 @@ import com.flowfolio.feature.library.ShelfPageViewModel
 import com.flowfolio.feature.library.ShelvesScreen
 import com.flowfolio.feature.reader.ReaderScreen
 import com.flowfolio.feature.tools.AiSettingsScreen
-import com.flowfolio.feature.tools.LocalOpenAiSettings
 import com.flowfolio.feature.tools.DiscoverScreen
+import com.flowfolio.feature.tools.LocalOpenAiSettings
 import com.flowfolio.feature.tools.LocalToolPrefs
 import com.flowfolio.feature.tools.PdfToolsScreen
 import com.flowfolio.feature.tools.ToolPrefs
@@ -104,94 +104,98 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
             blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp
         )
     ) {
-    AppShell(entry?.destination?.route, onSelect = nav::switchTo) {
-        SharedTransitionLayout {
-            CompositionLocalProvider(
-                LocalSharedTransition provides this,
-                // "Set up AI" in the reader's Ask AI sheet lands on Settings → AI.
-                LocalOpenAiSettings provides { nav.navigate(Routes.AI) }
-            ) {
-                NavHost(
-                    navController = nav,
-                    startDestination = TopLevel.Library.route,
-                    // The app's motion (ADR-0033): fade through between tabs, shared axis into pages.
-                    enterTransition = NavMotion.enter,
-                    exitTransition = NavMotion.exit,
-                    popEnterTransition = NavMotion.popEnter,
-                    popExitTransition = NavMotion.popExit
+        AppShell(entry?.destination?.route, onSelect = nav::switchTo) {
+            SharedTransitionLayout {
+                CompositionLocalProvider(
+                    LocalSharedTransition provides this,
+                    // "Set up AI" in the reader's Ask AI sheet lands on Settings → AI.
+                    LocalOpenAiSettings provides { nav.navigate(Routes.AI) }
                 ) {
-                    destination(TopLevel.Library.route) { entry ->
-                        val library: LibraryViewModel = hiltViewModel()
-                        LaunchedEffect(library) { appViewModel.sharedFiles.collect(library::onFileShared) }
-                        // A chip asked for from elsewhere (the retired Favorites route): chosen once, then cleared.
-                        LaunchedEffect(entry) {
-                            entry.savedStateHandle.getStateFlow<String?>(LIBRARY_FILTER, null).collect { name ->
-                                LibraryFilter.entries.firstOrNull { it.name == name }?.let(library::onFilter)
-                                if (name != null) entry.savedStateHandle[LIBRARY_FILTER] = null
+                    NavHost(
+                        navController = nav,
+                        startDestination = TopLevel.Library.route,
+                        // The app's motion (ADR-0033): fade through between tabs, shared axis into pages.
+                        enterTransition = NavMotion.enter,
+                        exitTransition = NavMotion.exit,
+                        popEnterTransition = NavMotion.popEnter,
+                        popExitTransition = NavMotion.popExit
+                    ) {
+                        destination(TopLevel.Library.route) { entry ->
+                            val library: LibraryViewModel = hiltViewModel()
+                            LaunchedEffect(library) { appViewModel.sharedFiles.collect(library::onFileShared) }
+                            // A chip asked for from elsewhere (the retired Favorites route): chosen once, then cleared.
+                            LaunchedEffect(entry) {
+                                entry.savedStateHandle.getStateFlow<String?>(LIBRARY_FILTER, null).collect { name ->
+                                    LibraryFilter.entries.firstOrNull { it.name == name }?.let(library::onFilter)
+                                    if (name != null) entry.savedStateHandle[LIBRARY_FILTER] = null
+                                }
+                            }
+                            ScreenEntrance {
+                                LibraryScreen(
+                                    onOpenDetails = { book, origin -> nav.navigate(Routes.details(book.id, origin)) },
+                                    onRead = { book -> nav.navigate(Routes.reader(book.id)) },
+                                    onOpenShelf = { id -> nav.navigate(Routes.shelf(id)) },
+                                    onOpenFolder = { path -> nav.navigate(Routes.folder(path)) },
+                                    onBookmarks = { book ->
+                                        nav.navigate(Destinations.notebookBook(book.id, MarkKind.BOOKMARK))
+                                    },
+                                    onAnnotations = { book ->
+                                        nav.navigate(Destinations.notebookBook(book.id, MarkKind.HIGHLIGHT))
+                                    },
+                                    onDictionary = { book ->
+                                        nav.navigate(Destinations.notebookBook(book.id, MarkKind.WORD))
+                                    },
+                                    onOpenNotebook = { section ->
+                                        nav.navigate(Destinations.notebook(section)) {
+                                            popUpTo(nav.graph.findStartDestination().id)
+                                            launchSingleTop = true
+                                        }
+                                    },
+                                    scrollToShelf = shelfToShow,
+                                    onScrolledToShelf = { shelfToShow = null },
+                                    viewModel = library
+                                )
                             }
                         }
-                        ScreenEntrance {
-                            LibraryScreen(
-                                onOpenDetails = { book, origin -> nav.navigate(Routes.details(book.id, origin)) },
-                                onRead = { book -> nav.navigate(Routes.reader(book.id)) },
-                                onOpenShelf = { id -> nav.navigate(Routes.shelf(id)) },
-                                onOpenFolder = { path -> nav.navigate(Routes.folder(path)) },
-                                onBookmarks = { book ->
-                                    nav.navigate(Destinations.notebookBook(book.id, MarkKind.BOOKMARK))
-                                },
-                                onAnnotations = { book ->
-                                    nav.navigate(Destinations.notebookBook(book.id, MarkKind.HIGHLIGHT))
-                                },
-                                onDictionary = { book ->
-                                    nav.navigate(Destinations.notebookBook(book.id, MarkKind.WORD))
-                                },
-                                onOpenNotebook = { section ->
-                                    nav.navigate(Destinations.notebook(section)) {
-                                        popUpTo(nav.graph.findStartDestination().id)
-                                        launchSingleTop = true
-                                    }
-                                },
-                                scrollToShelf = shelfToShow,
-                                onScrolledToShelf = { shelfToShow = null },
-                                viewModel = library
-                            )
+                        // A shelf opens on its own page, as from its book count in the library (owner, 2026-10-22).
+                        destination(TopLevel.Shelves.route) {
+                            ScreenEntrance { ShelvesScreen(onOpenShelf = { id -> nav.navigate(Routes.shelf(id)) }) }
                         }
-                    }
-                    // A shelf opens on its own page, as from its book count in the library (owner, 2026-10-22).
-                    destination(TopLevel.Shelves.route) {
-                        ScreenEntrance { ShelvesScreen(onOpenShelf = { id -> nav.navigate(Routes.shelf(id)) }) }
-                    }
-                    notebookDestination(nav)
-                    notebookBookDestination(nav)
-                    retiredDestinations(nav)
-                    destination(TopLevel.Tools.route) {
-                        ScreenEntrance { PdfToolsScreen(onOpenAi = { nav.navigate(Routes.AI) }, onOpenDiscover = { nav.navigate(Routes.DISCOVER) }) }
-                    }
-                    composable(Routes.DISCOVER) {
-                        ScreenEntrance { DiscoverScreen(onBack = { nav.popBackStack() }) }
-                    }
-                    composable(Routes.AI) {
-                        ScreenEntrance { AiSettingsScreen(onBack = { nav.popBackStack() }) }
-                    }
-                    destination(TopLevel.Settings.route) {
-                        ScreenEntrance {
-                            SettingsScreen(onOpenLicenses = {
-                                nav.navigate(Routes.LICENSES)
-                            }, scrollToUpdates = updatesFocus)
+                        notebookDestination(nav)
+                        notebookBookDestination(nav)
+                        retiredDestinations(nav)
+                        destination(TopLevel.Tools.route) {
+                            ScreenEntrance {
+                                PdfToolsScreen(onOpenAi = {
+                                    nav.navigate(Routes.AI)
+                                }, onOpenDiscover = { nav.navigate(Routes.DISCOVER) })
+                            }
                         }
+                        composable(Routes.DISCOVER) {
+                            ScreenEntrance { DiscoverScreen(onBack = { nav.popBackStack() }) }
+                        }
+                        composable(Routes.AI) {
+                            ScreenEntrance { AiSettingsScreen(onBack = { nav.popBackStack() }) }
+                        }
+                        destination(TopLevel.Settings.route) {
+                            ScreenEntrance {
+                                SettingsScreen(onOpenLicenses = {
+                                    nav.navigate(Routes.LICENSES)
+                                }, scrollToUpdates = updatesFocus)
+                            }
+                        }
+                        detailsDestination(nav)
+                        editDestination(nav)
+                        bookBookmarksDestination(nav)
+                        bookAnnotationsDestination(nav)
+                        bookDictionaryDestination(nav)
+                        shelfPages(nav)
+                        licensesDestination(nav)
+                        readerDestination(nav)
                     }
-                    detailsDestination(nav)
-                    editDestination(nav)
-                    bookBookmarksDestination(nav)
-                    bookAnnotationsDestination(nav)
-                    bookDictionaryDestination(nav)
-                    shelfPages(nav)
-                    licensesDestination(nav)
-                    readerDestination(nav)
                 }
             }
         }
-    }
     }
     SpotlightHost()
 }

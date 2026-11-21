@@ -24,6 +24,7 @@ internal object DiscoverModule {
     fun importer(library: LibraryRepository): BookImporter = BookImporter { file, book ->
         when (val r = library.import(Uri.fromFile(file).toString(), StorageMode.COPY)) {
             is ImportResult.Duplicate -> AddOutcome.ALREADY_THERE
+
             is ImportResult.Imported -> {
                 val details = BookDetails(
                     description = book.summary.ifBlank { null },
@@ -41,6 +42,7 @@ internal object DiscoverModule {
                 }
                 AddOutcome.ADDED
             }
+
             else -> AddOutcome.FAILED
         }
     }
