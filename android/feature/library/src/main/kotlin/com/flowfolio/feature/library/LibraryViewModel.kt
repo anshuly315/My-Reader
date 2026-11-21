@@ -600,8 +600,9 @@ class LibraryViewModel @Inject constructor(
     }
 
     /** Removes every book in the folder [path] and the folders inside it (asked first). */
-    fun onRemoveFolder(path: String) = viewModelScope.launch {
-        uiState.value.items.map { it.book }.filter { it.isUnder(path) }.forEach { library.delete(it.id) }
+    fun onRemoveFolder(path: String, eraseFiles: Boolean = false) = viewModelScope.launch {
+        uiState.value.items.map { it.book }.filter { it.isUnder(path) }
+            .forEach { if (eraseFiles) library.deleteFromStorage(it.id) else library.delete(it.id) }
     }
 
     fun onConfirmDelete(book: Book) = viewModelScope.launch {

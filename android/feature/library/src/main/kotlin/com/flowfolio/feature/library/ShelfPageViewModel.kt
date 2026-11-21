@@ -72,7 +72,7 @@ private object EmptyReadingRepository : ReadingRepository {
 }
 
 /** One shelf's books, as tiles or a list, with renaming, removing and locating books. */
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "TooManyFunctions")
 @HiltViewModel
 class ShelfPageViewModel @Inject constructor(
     saved: SavedStateHandle,
@@ -200,11 +200,14 @@ class ShelfPageViewModel @Inject constructor(
 
     fun delete(bookId: String) = viewModelScope.launch { library.delete(bookId) }
 
+    /** Removes the book and erases its file from the phone. */
+    fun deleteFile(bookId: String) = viewModelScope.launch { library.deleteFromStorage(bookId) }
+
     /**
      * Removes what select mode chose: books by id, and for a chosen folder every book in it and in the folders inside
      * it.
      */
-    fun deleteChosen(keys: Set<String>) = viewModelScope.launch {
+    fun deleteChosen(keys: Set<String>, eraseFiles: Boolean = false) = viewModelScope.launch {
         val paths = keys.filter {
             it.startsWith(FolderEntry.FOLDER_PREFIX)
         }.map { it.removePrefix(FolderEntry.FOLDER_PREFIX) }
@@ -214,11 +217,12 @@ class ShelfPageViewModel @Inject constructor(
             keys.filterNot {
                 it.startsWith(FolderEntry.FOLDER_PREFIX)
             } + inFolders
-            ).distinct().forEach { library.delete(it) }
+            ).distinct().forEach { if (eraseFiles) library.deleteFromStorage(it) else library.delete(it) }
     }
 
     /** Removes every book in the folder [path] and the folders inside it. */
-    fun removeFolder(path: String) = deleteChosen(setOf(FolderEntry.FOLDER_PREFIX + path))
+    fun removeFolder(path: String, eraseFiles: Boolean = false) =
+        deleteChosen(setOf(FolderEntry.FOLDER_PREFIX + path), eraseFiles)
 
     /** Takes the chosen books off the Favourites page without removing them from the library (owner, 2026-11-07). */
     fun unfavoriteChosen(keys: Set<String>) = viewModelScope.launch {

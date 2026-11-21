@@ -907,4 +907,5 @@
     <string name="cover_pick">Tap a picture to use it as the cover.</string>
     <string name="cover_saving">Saving the cover…</string>
     <string name="cover_failed">That picture could not be saved. Try another.</string>
+    <string name="delete_files_too">Delete files too</string>
 </resources>

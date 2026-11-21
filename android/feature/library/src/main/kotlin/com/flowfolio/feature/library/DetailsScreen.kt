@@ -168,6 +168,7 @@ fun DetailsScreen(
         onGoal = rememberBookGoalDialog(book, state.bookGoal, viewModel),
         onLocate = locate,
         onDelete = { libraryVm.onRequestDelete(book) },
+        onDeleteFile = { libraryVm.onRequestDeleteFile(book) },
         onEdit = { onEdit(book) },
         onBook = onOpenBook,
         onFavorite = { libraryVm.toggleFavorite(book) },
@@ -197,6 +198,7 @@ internal data class DetailsActions(
     val onGoal: () -> Unit = {},
     val onLocate: () -> Unit = {},
     val onDelete: () -> Unit = {},
+    val onDeleteFile: () -> Unit = {},
     val onEdit: () -> Unit = {},
     val onBook: (Book) -> Unit = {},
     /** Makes the book a favourite, or not; marks it finished, or not (owner, M3T2). */
@@ -627,6 +629,12 @@ private fun DetailsMenu(state: DetailsUiState, open: Boolean, actions: DetailsAc
         FlowFolioMenuItem(
             stringResource(R.string.action_remove_from_library),
             run(actions.onDelete),
+            glyph = Glyph.Trash,
+            destructive = true
+        )
+        FlowFolioMenuItem(
+            stringResource(R.string.action_delete_file),
+            run(actions.onDeleteFile),
             glyph = Glyph.Trash,
             destructive = true
         )

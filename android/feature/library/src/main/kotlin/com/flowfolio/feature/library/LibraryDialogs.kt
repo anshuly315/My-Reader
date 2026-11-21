@@ -229,7 +229,12 @@ internal fun ImportProgress(progress: Pair<Int, Int>?) {
 
 /** Asks before a folder's books leave the library. */
 @Composable
-internal fun RemoveFolderDialog(folder: FolderEntry, onConfirm: () -> Unit, onClose: () -> Unit) {
+internal fun RemoveFolderDialog(
+    folder: FolderEntry,
+    onConfirm: () -> Unit,
+    onClose: () -> Unit,
+    onEraseFiles: (() -> Unit)? = null
+) {
     BulkDeleteDialog(
         androidx.compose.ui.res.pluralStringResource(R.plurals.delete_books_title, folder.bookCount, folder.bookCount),
         stringResource(R.string.remove_folder_body, folder.name),
@@ -237,6 +242,12 @@ internal fun RemoveFolderDialog(folder: FolderEntry, onConfirm: () -> Unit, onCl
             onConfirm()
             onClose()
         },
-        onDismiss = onClose
+        onDismiss = onClose,
+        onConfirmFiles = onEraseFiles?.let { erase ->
+            {
+                erase()
+                onClose()
+            }
+        }
     )
 }

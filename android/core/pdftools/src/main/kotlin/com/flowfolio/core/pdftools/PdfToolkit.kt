@@ -773,30 +773,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         return made
     }
 
-    /** A comic book archive (.cbz, a zip of page pictures) as a PDF, the pictures in name order. */
-    fun comicToPdf(archive: File, output: File, workDir: File) {
-        val pictures = ArrayList<File>()
-        workDir.mkdirs()
-        try {
-            java.util.zip.ZipFile(archive).use { zip ->
-                zip.entries().asSequence()
-                    .filter { !it.isDirectory && COMIC_PICTURE.containsMatchIn(it.name) }
-                    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-                    .forEachIndexed { i, entry ->
-                        val file = File(workDir, "page-${i.toString().padStart(COMIC_DIGITS, '0')}.img")
-                        zip.getInputStream(entry).use { input -> file.outputStream().use { input.copyTo(it) } }
-                        pictures += file
-                    }
-            }
-            if (pictures.isEmpty()) throw PdfToolException("No page pictures were found in ${archive.name}.")
-            imagesToPdf(pictures, output)
-        } catch (e: java.util.zip.ZipException) {
-            throw PdfToolException("${archive.name} is not a comic archive (.cbz).")
-        } finally {
-            pictures.forEach { it.delete() }
-        }
-    }
-
     /** A new PDF of [pages] empty A4 pages (1 to 500). */
     fun blankPdf(output: File, pages: Int) {
         require(pages in 1..MAX_BLANK_PAGES) { "Choose between 1 and $MAX_BLANK_PAGES pages." }
@@ -807,86 +783,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         } finally {
             doc.close()
         }
-    }
-
-    /** A PDF made from a text, Markdown or HTML file: A4 pages, wrapped lines, "#" headings in bold. */
-    @Suppress("NestedBlockDepth")
-    fun textToPdf(input: File, output: File) {
-        val raw = input.readText()
-        val html = input.extension.lowercase() in setOf("html", "htm", "xhtml")
-        val lines = if (html) BookConverter.htmlToParagraphs(raw) else raw.lines()
-        require(lines.any { it.isNotBlank() }) { "That file has no text." }
-        val doc = PDDocument()
-        try {
-            val box = PDRectangle.A4
-            val margin = TEXT_MARGIN
-            var page = PDPage(box)
-            doc.addPage(page)
-            var cs = PDPageContentStream(doc, page)
-            var y = box.height - margin
-            fun fresh() {
-                cs.close()
-                page = PDPage(box)
-                doc.addPage(page)
-                cs = PDPageContentStream(doc, page)
-                y = box.height - margin
-            }
-            for (line in lines) {
-                val heading = !html && line.startsWith("#")
-                val text = pdfSafe(if (heading) line.trimStart('#', ' ') else line.replace("**", "").replace("`", ""))
-                val font = if (heading) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
-                val size = if (heading) TEXT_HEAD else TEXT_BODY
-                val lead = size * TEXT_LEADING
-                for (part in wrap(text, font, size, box.width - 2 * margin).ifEmpty { listOf("") }) {
-                    if (y < margin) fresh()
-                    cs.beginText()
-                    cs.setFont(font, size)
-                    cs.newLineAtOffset(margin, y)
-                    cs.showText(part)
-                    cs.endText()
-                    y -= lead
-                }
-                if (heading) y -= lead / 2
-            }
-            cs.close()
-            save(doc, output)
-        } finally {
-            doc.close()
-        }
-    }
-
-    private fun pdfSafe(text: String) = buildString {
-        for (c in text) {
-            append(
-                if (c.code in 32..126 ||
-                    c.code in 161..255
-                ) {
-                    c
-                } else if (c == '\t') {
-                    "    "
-                } else if (c.code < 32) {
-                    ""
-                } else {
-                    "?"
-                }
-            )
-        }
-    }
-
-    private fun wrap(text: String, font: PDType1Font, size: Float, width: Float): List<String> {
-        val out = mutableListOf<String>()
-        var cur = ""
-        for (word in text.split(' ')) {
-            val next = if (cur.isEmpty()) word else "$cur $word"
-            if (font.getStringWidth(next) / FONT_UNITS * size <= width) {
-                cur = next
-            } else {
-                if (cur.isNotEmpty()) out += cur
-                cur = word
-            }
-        }
-        if (cur.isNotEmpty()) out += cur
-        return out
     }
 
     /** Adds bookmarks from lines like "Introduction, 3" (a title, a comma, the page); replaces the old ones. */
@@ -1125,16 +1021,10 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
         const val MAX_BLANK_PAGES = 500
-        const val COMIC_DIGITS = 5
-        val COMIC_PICTURE = Regex("""\.(jpe?g|png|webp)$""", RegexOption.IGNORE_CASE)
         const val MIN_STAMP = 5
         const val MAX_STAMP = 100
         const val PERCENT = 100f
         val URL_PATTERN = Regex("""(https?://|www\.)[^\s<>"]+""")
-        const val TEXT_MARGIN = 56f
-        const val TEXT_BODY = 11f
-        const val TEXT_HEAD = 16f
-        const val TEXT_LEADING = 1.35f
         const val HEALTH_SAMPLE_PAGES = 5
         const val BYTES_PER_MB = 1024L * 1024L
         const val FONT_UNITS = 1000f

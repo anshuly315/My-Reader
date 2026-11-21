@@ -131,7 +131,14 @@ private const val SWAP_RISE = 3
 
 /** "Remove N …?": asks before a bulk delete; [body] says what stays or goes. */
 @Composable
-internal fun BulkDeleteDialog(title: String, body: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun BulkDeleteDialog(
+    title: String,
+    body: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    /** Also offers to erase the files from the phone; null where that does not apply. */
+    onConfirmFiles: (() -> Unit)? = null
+) {
     FlowFolioAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -142,7 +149,14 @@ internal fun BulkDeleteDialog(title: String, body: String, onConfirm: () -> Unit
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel), style = FlowFolio.hint) }
+            androidx.compose.foundation.layout.Row {
+                onConfirmFiles?.let {
+                    TextButton(onClick = it) {
+                        Text(stringResource(R.string.delete_files_too), style = FlowFolio.subItem)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel), style = FlowFolio.hint) }
+            }
         }
     )
 }

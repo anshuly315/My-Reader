@@ -36,7 +36,6 @@ enum class PdfTool(
     N_UP(R.string.tool_nup, R.string.tool_nup_sub, Glyph.Page),
     SINGLE_PAGE(R.string.tool_single, R.string.tool_single_sub, Glyph.Page),
     EXTRACT_IMAGES(R.string.tool_extract_images, R.string.tool_extract_images_sub, Glyph.Cover),
-    CONVERT_BOOK(R.string.tool_convert_book, R.string.tool_convert_book_sub, Glyph.OpenBook, ToolInput.BOOK),
     SCALE_A4(R.string.tool_scale_a4, R.string.tool_scale_a4_sub, Glyph.Page),
     BOOKLET(R.string.tool_booklet, R.string.tool_booklet_sub, Glyph.Page),
     SPLIT_SIZE(R.string.tool_split_size, R.string.tool_split_size_sub, Glyph.Sort),
@@ -51,12 +50,10 @@ enum class PdfTool(
     REDACT(R.string.tool_redact, R.string.tool_redact_sub, Glyph.Select),
     GRAYSCALE(R.string.tool_grayscale, R.string.tool_grayscale_sub, Glyph.Page),
     INVERT(R.string.tool_invert, R.string.tool_invert_sub, Glyph.Page),
-    TEXT_TO_PDF(R.string.tool_text_to_pdf, R.string.tool_text_to_pdf_sub, Glyph.Page, ToolInput.BOOK),
     BOOKMARKS(R.string.tool_bookmarks, R.string.tool_bookmarks_sub, Glyph.Page),
     HEALTH(R.string.tool_health, R.string.tool_health_sub, Glyph.Page),
     BLANK_PDF(R.string.tool_blank_pdf, R.string.tool_blank_pdf_sub, Glyph.Add, ToolInput.NONE),
     STAMP_IMAGE(R.string.tool_stamp_image, R.string.tool_stamp_image_sub, Glyph.Highlight, ToolInput.PDF_AND_IMAGE),
-    COMIC_TO_PDF(R.string.tool_comic_to_pdf, R.string.tool_comic_to_pdf_sub, Glyph.Cover, ToolInput.BOOK),
     LINK_ADDRESSES(R.string.tool_link_addresses, R.string.tool_link_addresses_sub, Glyph.GoTo);
 
     /** Whether the tool lets the reader choose pages. */

@@ -123,8 +123,6 @@
     <string name="tool_single_sub">All pages as one scroll.</string>
     <string name="tool_extract_images">Extract pictures</string>
     <string name="tool_extract_images_sub">Save embedded images as PNG.</string>
-    <string name="tool_convert_book">Convert book</string>
-    <string name="tool_convert_book_sub">TXT, HTML, FB2, RTF to EPUB. CBZ to PDF.</string>
     <string name="tools_choose_book">Choose a book file</string>
     <string name="opt_per_sheet">Pages per sheet</string>
     <string name="tool_scale_a4">Resize to A4</string>
@@ -177,8 +175,6 @@
     <string name="discover_added">%1$s was added to your library.</string>
     <string name="discover_already">%1$s is already in your library.</string>
     <string name="discover_failed">%1$s could not be added. Try again.</string>
-    <string name="tool_text_to_pdf">Text to PDF</string>
-    <string name="tool_text_to_pdf_sub">Turn TXT, Markdown or HTML files into a PDF.</string>
     <string name="tool_bookmarks">Add bookmarks</string>
     <string name="tool_bookmarks_sub">Type a title and page per line to build a contents list.</string>
     <string name="tool_health">Health check</string>
@@ -200,6 +196,4 @@
     <string name="tools_preview">View</string>
     <string name="tools_preview_close">Close</string>
     <string name="tools_no_preview">This kind of file has no preview here. Save it to open it in another app.</string>
-    <string name="tool_comic_to_pdf">Comic (CBZ) to PDF</string>
-    <string name="tool_comic_to_pdf_sub">Turn a comic archive into a PDF you can read here.</string>
 </resources>

@@ -266,7 +266,12 @@ private fun rememberMessages(viewModel: LibraryViewModel): SnackbarHostState {
 private fun rememberRemoveFolder(viewModel: LibraryViewModel): (FolderEntry) -> Unit {
     var removing by remember { mutableStateOf<FolderEntry?>(null) }
     removing?.let { folder ->
-        RemoveFolderDialog(folder, onConfirm = { viewModel.onRemoveFolder(folder.path) }) { removing = null }
+        RemoveFolderDialog(
+            folder,
+            onConfirm = { viewModel.onRemoveFolder(folder.path) },
+            onClose = { removing = null },
+            onEraseFiles = { viewModel.onRemoveFolder(folder.path, eraseFiles = true) }
+        )
     }
     return { removing = it }
 }

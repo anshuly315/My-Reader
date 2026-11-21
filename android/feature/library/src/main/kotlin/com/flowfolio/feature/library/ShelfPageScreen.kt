@@ -107,6 +107,8 @@ private sealed interface BookPrompt {
 
     data class Delete(override val book: Book) : BookPrompt
 
+    data class DeleteFile(override val book: Book) : BookPrompt
+
     data class Shelves(override val book: Book) : BookPrompt
 }
 
@@ -133,6 +135,8 @@ internal data class BookRowActions(
     val onAddBooks: (() -> Unit)? = null,
     /** Select mode's "Add to shelf" for the chosen books. */
     val onShelveChosen: (() -> Unit)? = null,
+    /** Removes the book and erases its file from the phone. */
+    val onDeleteFile: (Book) -> Unit = {},
     /** Saves the shelf's new order after a drag and drop; null where books keep their order. */
     val onReorder: ((List<String>) -> Unit)? = null,
     /** The drag and drop under way in the current view (set by [ShelfPageContent]). */
@@ -178,6 +182,7 @@ fun ShelfPageScreen(
         },
         onRename = { prompt = BookPrompt.Rename(it) },
         onDelete = { prompt = BookPrompt.Delete(it) },
+        onDeleteFile = { prompt = BookPrompt.DeleteFile(it) },
         onShelves = { prompt = BookPrompt.Shelves(it) },
         onLocate = { relink(it.id) },
         onBookmarks = onBookmarks,
@@ -237,7 +242,11 @@ fun ShelfPageScreen(
             ConfirmShelfBooksDelete(selection, state, viewModel) { confirmBulk = false }
         }
     }
-    removing?.let { folder -> RemoveFolderDialog(folder, { viewModel.removeFolder(folder.path) }) { removing = null } }
+    removing?.let { folder ->
+        RemoveFolderDialog(folder, { viewModel.removeFolder(folder.path) }, { removing = null }) {
+            viewModel.removeFolder(folder.path, eraseFiles = true)
+        }
+    }
     state.shelf?.let { s -> ShelfPageEdits(s, shelfEdit, shelvesVm, onBack) { shelfEdit = null } }
     BackHandler(selection.active) { selection.done() }
     BookPromptDialogs(prompt, state, viewModel, shelvesVm) { prompt = null }
@@ -276,7 +285,12 @@ private fun ConfirmShelfBooksDelete(
             selection.done()
             onClose()
         },
-        onDismiss = onClose
+        onDismiss = onClose,
+        onConfirmFiles = {
+            viewModel.deleteChosen(selection.chosen.toSet(), eraseFiles = true)
+            selection.done()
+            onClose()
+        }
     )
 }
 
@@ -335,6 +349,23 @@ private fun BookPromptDialogs(
                 onDone()
             },
             onDismiss = { onDone() }
+        )
+
+        is BookPrompt.DeleteFile -> FlowFolioAlertDialog(
+            onDismissRequest = { onDone() },
+            title = { Text(stringResource(R.string.delete_file_title, prompt.book.title)) },
+            text = { Text(stringResource(R.string.delete_file_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteFile(prompt.book.id)
+                    onDone()
+                }) { Text(stringResource(R.string.delete_file_confirm), style = FlowFolio.subItem) }
+            },
+            dismissButton = {
+                TextButton(onClick = { onDone() }) {
+                    Text(stringResource(R.string.action_cancel), style = FlowFolio.hint)
+                }
+            }
         )
 
         is BookPrompt.Delete -> FlowFolioAlertDialog(

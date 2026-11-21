@@ -271,15 +271,6 @@ class PdfToolkitTest {
     }
 
     @Test
-    fun textToPdfWrapsAndPaginates() {
-        val src = File(tmp.root, "n.md").also { it.writeText("# Title\n" + "word ".repeat(2000)) }
-        val out = File(tmp.root, "n.pdf")
-        kit.textToPdf(src, out)
-        assertTrue(kit.info(out).pages >= 2)
-        assertTrue(kit.extractText(out).contains("Title"))
-    }
-
-    @Test
     fun bookmarksAreAddedAndChecked() {
         val out = File(tmp.root, "b.pdf")
         kit.addBookmarks(pdf("b0.pdf", 3), out, "Intro, 1\nEnd, 3")
@@ -307,9 +298,19 @@ class PdfToolkitTest {
 
     @Test
     fun addressesInTheTextBecomeLinks() {
-        val src = File(tmp.root, "links.txt").apply { writeText("Read more at https://example.com/page today.") }
         val plain = File(tmp.root, "links.pdf")
-        kit.textToPdf(src, plain)
+        com.tom_roush.pdfbox.pdmodel.PDDocument().use { d ->
+            val page = com.tom_roush.pdfbox.pdmodel.PDPage()
+            d.addPage(page)
+            com.tom_roush.pdfbox.pdmodel.PDPageContentStream(d, page).use { cs ->
+                cs.beginText()
+                cs.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 12f)
+                cs.newLineAtOffset(72f, 700f)
+                cs.showText("Read more at https://example.com/page today.")
+                cs.endText()
+            }
+            d.save(plain)
+        }
         val out = File(tmp.root, "links-out.pdf")
         assertTrue(kit.linkAddresses(plain, out) >= 1)
     }

@@ -8,7 +8,6 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.flowfolio.core.pdftools.BookConverter
 import com.flowfolio.core.pdftools.PageRanges
 import com.flowfolio.core.pdftools.PdfToolException
 import com.flowfolio.core.pdftools.PdfToolkit
@@ -149,10 +148,6 @@ class ToolsViewModel @Inject constructor(
                 }
             )
 
-            PdfTool.COMIC_TO_PDF -> listOf(
-                File(out, first.nameWithoutExtension + ".pdf").also { kit.comicToPdf(first, it, File(out, "pages")) }
-            )
-
             PdfTool.STAMP_IMAGE -> {
                 val pdfFile = input.firstOrNull { it.extension.equals("pdf", true) }
                     ?: throw PdfToolException("Choose a PDF and a picture.")
@@ -235,16 +230,6 @@ class ToolsViewModel @Inject constructor(
 
             PdfTool.EXTRACT_IMAGES -> kit.extractImages(first, out)
 
-            PdfTool.CONVERT_BOOK -> when {
-                first.extension.lowercase() in BookConverter.COMIC_INPUTS ->
-                    listOf(pdf("comic").also { BookConverter.comicToPdf(first, it, File(out, "tmp"), kit) })
-
-                BookConverter.isSupported(first) ->
-                    listOf(File(out, "$stem.epub").also { BookConverter.toEpub(first, it) })
-
-                else -> throw bad("That format is not supported yet. Supported: TXT, HTML, FB2, RTF, CBZ.")
-            }
-
             PdfTool.SCALE_A4 -> listOf(pdf("a4").also { kit.scaleToA4(first, it) })
 
             PdfTool.BOOKLET -> listOf(pdf("booklet").also { kit.booklet(first, it) })
@@ -278,8 +263,6 @@ class ToolsViewModel @Inject constructor(
             PdfTool.GRAYSCALE -> listOf(pdf("grey").also { kit.grayscale(first, it) })
 
             PdfTool.INVERT -> listOf(pdf("inverted").also { kit.invert(first, it) })
-
-            PdfTool.TEXT_TO_PDF -> listOf(pdf("text").also { kit.textToPdf(first, it) })
 
             PdfTool.BOOKMARKS -> listOf(pdf("bookmarked").also { kit.addBookmarks(first, it, o.text) })
 

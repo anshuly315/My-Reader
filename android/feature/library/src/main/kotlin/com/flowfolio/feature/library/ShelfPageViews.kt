@@ -179,6 +179,7 @@ internal fun BookTile(item: LibraryItem, actions: BookRowActions, origin: String
             LibraryActions(
                 onOpen = { tapped, _ -> actions.onOpen(tapped) },
                 onDelete = actions.onDelete,
+                onDeleteFile = actions.onDeleteFile,
                 onLocate = actions.onLocate,
                 onAddToShelf = actions.onShelves,
                 onRename = actions.onRename,
