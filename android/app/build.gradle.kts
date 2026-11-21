@@ -239,6 +239,7 @@ dependencies {
     implementation(projects.feature.tools)
     implementation(projects.core.ai)
     implementation(projects.core.pdftools)
+    implementation(projects.core.catalog)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.core.ktx)

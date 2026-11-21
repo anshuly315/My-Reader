@@ -10,6 +10,7 @@ android {
 
 dependencies {
     implementation(projects.core.ai)
+    implementation(projects.core.catalog)
     implementation(projects.core.pdftools)
     implementation(projects.core.designsystem)
     implementation(libs.androidx.activity.compose)

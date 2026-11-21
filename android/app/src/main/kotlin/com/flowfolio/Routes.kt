@@ -34,6 +34,9 @@ internal object Routes {
     /** Settings → AI: reached from the Tools tab and from the reader's Ask AI sheet. */
     const val AI = "ai"
 
+    /** Free public-domain books, reached from the Tools tab. */
+    const val DISCOVER = "discover"
+
     fun isReader(route: String?) = route?.startsWith("reader/") == true
 
     /**

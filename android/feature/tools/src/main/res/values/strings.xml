@@ -159,4 +159,22 @@
     <string name="opt_header_text">Text ({n} is the page number, {total} the page count)</string>
     <string name="opt_redact_words">Words to black out, separated by commas</string>
     <string name="tools_need_two">Choose exactly two PDFs.</string>
+    <string name="discover_title">Free books</string>
+    <string name="discover_sub">Public-domain books, free to keep.</string>
+    <string name="discover_card">Find free books</string>
+    <string name="discover_card_sub">Project Gutenberg and the Internet Archive.</string>
+    <string name="discover_search">Title, author or subject</string>
+    <string name="discover_go">Search</string>
+    <string name="discover_more">Show more</string>
+    <string name="discover_loading">Loading…</string>
+    <string name="discover_none">Nothing found. Try another word.</string>
+    <string name="discover_offline">Could not reach the catalog. Check your connection and try again.</string>
+    <string name="discover_unknown_author">Unknown author</string>
+    <string name="discover_downloads">%1$d downloads</string>
+    <string name="discover_add">Add to library</string>
+    <string name="discover_adding">Adding…</string>
+    <string name="discover_in_library">In your library</string>
+    <string name="discover_added">%1$s was added to your library.</string>
+    <string name="discover_already">%1$s is already in your library.</string>
+    <string name="discover_failed">%1$s could not be added. Try again.</string>
 </resources>

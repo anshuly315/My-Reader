@@ -53,7 +53,7 @@ import com.flowfolio.core.designsystem.chromeStart
  * Everything runs on the phone.
  */
 @Composable
-fun PdfToolsScreen(onOpenAi: () -> Unit, viewModel: ToolsViewModel = hiltViewModel()) {
+fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: ToolsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ai by viewModel.ai.collectAsStateWithLifecycle()
     val tool = state.tool
@@ -81,6 +81,7 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, viewModel: ToolsViewModel = hiltViewMod
                     )
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) { AiCard(ai.preset.label, ai.ready, onOpenAi) }
+                    item(span = { GridItemSpan(maxLineSpan) }) { DiscoverCard(onOpenDiscover) }
                     items(PdfTool.entries.toList()) { t -> ToolCard(t) { viewModel.open(t) } }
                 }
             } else {
@@ -107,6 +108,24 @@ private fun AiCard(provider: String, ready: Boolean, onClick: () -> Unit) {
                         stringResource(if (ready) R.string.ai_status_ready else R.string.ai_status_setup),
                     style = FlowFolioType.rowDetail.copy(color = if (ready) p.ink2 else p.accent)
                 )
+            }
+        }
+    }
+}
+
+/** The way into the free-books section. */
+@Composable
+private fun DiscoverCard(onClick: () -> Unit) {
+    val p = FlowFolio.palette
+    FlowFolioCard(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        padding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            FlowFolioGlyph(Glyph.OpenBook, null, color = p.accent, size = 30.dp)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.discover_card), style = FlowFolioType.rowLabel.copy(color = p.ink))
+                Text(stringResource(R.string.discover_card_sub), style = FlowFolioType.rowDetail.copy(color = p.ink2))
             }
         }
     }

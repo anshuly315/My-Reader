@@ -65,6 +65,7 @@ import com.flowfolio.feature.library.ShelvesScreen
 import com.flowfolio.feature.reader.ReaderScreen
 import com.flowfolio.feature.tools.AiSettingsScreen
 import com.flowfolio.feature.tools.LocalOpenAiSettings
+import com.flowfolio.feature.tools.DiscoverScreen
 import com.flowfolio.feature.tools.PdfToolsScreen
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -139,7 +140,10 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
                     notebookBookDestination(nav)
                     retiredDestinations(nav)
                     destination(TopLevel.Tools.route) {
-                        ScreenEntrance { PdfToolsScreen(onOpenAi = { nav.navigate(Routes.AI) }) }
+                        ScreenEntrance { PdfToolsScreen(onOpenAi = { nav.navigate(Routes.AI) }, onOpenDiscover = { nav.navigate(Routes.DISCOVER) }) }
+                    }
+                    composable(Routes.DISCOVER) {
+                        ScreenEntrance { DiscoverScreen(onBack = { nav.popBackStack() }) }
                     }
                     composable(Routes.AI) {
                         ScreenEntrance { AiSettingsScreen(onBack = { nav.popBackStack() }) }
