@@ -181,6 +181,7 @@ private fun UpdateButtons(state: UpdateState, actions: SettingsActions, onWhatsN
 internal fun HousekeepingGroup(cacheBytes: Long, actions: SettingsActions) {
     var resetting by rememberSaveable { mutableStateOf(false) }
     Group(R.string.settings_housekeeping, 5) {
+        BackupRows(actions)
         // TM2: the first-launch offer of optional downloads, again.
         ActionRow(R.string.settings_resources, R.string.settings_resources_detail, actions.onOfferResources)
         Divider()

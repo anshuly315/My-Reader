@@ -36,6 +36,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /** User settings persisted with DataStore. Unknown stored values fall back to defaults instead of crashing. */
@@ -141,6 +142,66 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
     suspend fun setLibrarySort(sort: LibrarySort) {
         store.edit { it[SORT] = sort.name }
     }
+
+    /** Every saved setting as text, one per line ("type, key, value"), to keep in a file the reader chooses. */
+    suspend fun exportText(): String = buildString {
+        appendLine(BACKUP_HEADER)
+        store.data.first().asMap().entries.sortedBy { it.key.name }.forEach { (k, v) ->
+            val (type, text) = when (v) {
+                is String -> "S" to enc(v)
+                is Boolean -> "B" to v.toString()
+                is Int -> "I" to v.toString()
+                is Long -> "L" to v.toString()
+                is Float -> "F" to v.toString()
+                is Double -> "D" to v.toString()
+                is Set<*> -> "T" to v.joinToString(",") { enc(it.toString()) }
+                else -> return@forEach
+            }
+            appendLine("$type\t${enc(k.name)}\t$text")
+        }
+    }
+
+    /** Puts back settings written by [exportText]; answers how many were restored, or -1 for a file that is not one. */
+    suspend fun importText(text: String): Int {
+        val lines = text.lines()
+        if (lines.firstOrNull()?.trim() != BACKUP_HEADER) return -1
+        var count = 0
+        store.edit { p ->
+            for (line in lines.drop(1)) {
+                val parts = line.split('\t')
+                if (parts.size != 3) continue
+                val name = dec(parts[1])
+                val v = parts[2]
+                val ok = runCatching {
+                    when (parts[0]) {
+                        "S" -> p[stringPreferencesKey(name)] = dec(v)
+
+                        "B" -> p[androidx.datastore.preferences.core.booleanPreferencesKey(name)] = v.toBoolean()
+
+                        "I" -> p[androidx.datastore.preferences.core.intPreferencesKey(name)] = v.toInt()
+
+                        "L" -> p[androidx.datastore.preferences.core.longPreferencesKey(name)] = v.toLong()
+
+                        "F" -> p[androidx.datastore.preferences.core.floatPreferencesKey(name)] = v.toFloat()
+
+                        "D" -> p[androidx.datastore.preferences.core.doublePreferencesKey(name)] = v.toDouble()
+
+                        "T" -> p[androidx.datastore.preferences.core.stringSetPreferencesKey(name)] =
+                            v.split(',').filter { it.isNotEmpty() }.map { dec(it) }.toSet()
+
+                        else -> return@runCatching false
+                    }
+                    true
+                }.getOrDefault(false)
+                if (ok) count++
+            }
+        }
+        return count
+    }
+
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+
+    private fun dec(s: String) = java.net.URLDecoder.decode(s, "UTF-8")
 
     suspend fun setOption(key: String, value: String) {
         store.edit { it[stringPreferencesKey(OPTION_PREFIX + key)] = value }
@@ -298,6 +359,7 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
         val NOTICE_SEEN = booleanPreferencesKey("storage_notice_seen")
         val SORT = stringPreferencesKey("library_sort")
         const val OPTION_PREFIX = "opt_"
+        const val BACKUP_HEADER = "FlowFolioSettings1"
         val LIBRARY_VIEW = stringPreferencesKey("library_view")
         val STATS_BAND = stringPreferencesKey("library_stats_band")
         val NARRATOR_SKIP = stringPreferencesKey("narrator_skip")

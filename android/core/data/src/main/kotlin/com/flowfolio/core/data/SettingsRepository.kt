@@ -34,6 +34,11 @@ interface SettingsRepository {
 
     suspend fun setLibrarySort(sort: LibrarySort)
 
+    /** Every setting as text for a backup file, and the way back; the answer is how many were restored (-1: not a backup). */
+    suspend fun exportSettings(): String = ""
+
+    suspend fun importSettings(text: String): Int = 0
+
     /** One Customise choice (see `Options`); values are text. */
     suspend fun setOption(key: String, value: String) = Unit
 
@@ -143,6 +148,10 @@ class DefaultSettingsRepository @Inject constructor(private val source: Settings
     override suspend fun setLibrarySort(sort: LibrarySort) {
         source.setLibrarySort(sort)
     }
+
+    override suspend fun exportSettings(): String = source.exportText()
+
+    override suspend fun importSettings(text: String): Int = source.importText(text)
 
     override suspend fun setOption(key: String, value: String) {
         source.setOption(key, value)

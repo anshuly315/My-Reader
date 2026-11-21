@@ -78,4 +78,19 @@ class SettingsDataSourceTest {
         store.edit { it[stringPreferencesKey("storage_mode")] = "TELEPORT" }
         assertEquals(StorageMode.COPY, source.settings.first().storageMode)
     }
+
+    @Test
+    fun backupTextRestoresSettingsInAFreshStore() = runTest {
+        val (a, _) = fresh()
+        a.setOption("glass", "CRYSTAL")
+        val text = a.exportText()
+        val (b, _) = fresh()
+        assertEquals(1, b.importText(text))
+        assertEquals("CRYSTAL", b.settings.first().options["glass"])
+    }
+
+    @Test
+    fun aFileThatIsNotABackupIsRefused() = runTest {
+        assertEquals(-1, fresh().first.importText("hello"))
+    }
 }

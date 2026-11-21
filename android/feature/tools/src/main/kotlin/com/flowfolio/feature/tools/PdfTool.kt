@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import com.flowfolio.core.designsystem.Glyph
 
 /** What a tool takes in. */
-enum class ToolInput { ONE_PDF, MANY_PDF, IMAGES, BOOK }
+enum class ToolInput { ONE_PDF, MANY_PDF, IMAGES, BOOK, NONE }
 
 /** The PDF tools, after Stirling-PDF's, that run on the phone. */
 enum class PdfTool(
@@ -53,7 +53,8 @@ enum class PdfTool(
     INVERT(R.string.tool_invert, R.string.tool_invert_sub, Glyph.Page),
     TEXT_TO_PDF(R.string.tool_text_to_pdf, R.string.tool_text_to_pdf_sub, Glyph.Page, ToolInput.BOOK),
     BOOKMARKS(R.string.tool_bookmarks, R.string.tool_bookmarks_sub, Glyph.Page),
-    HEALTH(R.string.tool_health, R.string.tool_health_sub, Glyph.Page);
+    HEALTH(R.string.tool_health, R.string.tool_health_sub, Glyph.Page),
+    BLANK_PDF(R.string.tool_blank_pdf, R.string.tool_blank_pdf_sub, Glyph.Add, ToolInput.NONE);
 
     /** Whether the tool lets the reader choose pages. */
     val usesPages: Boolean get() = this in setOf(EXTRACT, REMOVE, ROTATE, REORDER, PDF_TO_IMAGES)

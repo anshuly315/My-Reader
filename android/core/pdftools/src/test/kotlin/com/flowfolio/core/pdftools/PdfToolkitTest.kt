@@ -296,4 +296,12 @@ class PdfToolkitTest {
         assertTrue(kit.healthCheck(textPdf("t.pdf", "hello")).contains("searchable"))
         assertTrue(kit.healthCheck(pdf("blank.pdf", 1)).contains("Pages: 1"))
     }
+
+    @Test
+    fun blankPdfHasTheRequestedPages() {
+        val out = File(tmp.root, "blank-new.pdf")
+        kit.blankPdf(out, 3)
+        assertTrue(kit.info(out).pages == 3)
+        assertThrows(IllegalArgumentException::class.java) { kit.blankPdf(File(tmp.root, "x.pdf"), 0) }
+    }
 }

@@ -877,4 +877,21 @@
     <string name="custom_tab_shelves">Shelves</string>
     <string name="custom_tab_notebook">Notebook</string>
     <string name="custom_tab_tools">Tools</string>
+    <string name="backup_save">Save settings to a file</string>
+    <string name="backup_save_detail">Pick any folder, including one in Drive or Dropbox, to keep a copy of your settings.</string>
+    <string name="backup_restore">Restore settings from a file</string>
+    <string name="backup_restore_detail">Choose a file saved earlier. Your books and notes are not changed.</string>
+    <string name="backup_saved">Settings saved.</string>
+    <string name="backup_failed">Could not save the file.</string>
+    <string name="backup_not_a_backup">That file is not a FlowFolio settings backup.</string>
+    <string name="backup_restored">Restored %1$d settings. Close and reopen the app to see all of them.</string>
+    <string name="library_scan">Scan folders now</string>
+    <string name="library_scan_detail">Look in the folders you added for new books.</string>
+    <string name="library_scanning">Scanning…</string>
+    <string name="library_scanned">Added %1$d new books.</string>
+    <string name="library_fill">Fill in missing book details</string>
+    <string name="library_fill_detail">Look up authors and descriptions online for books that lack them. Uses the internet.</string>
+    <string name="library_filling">Looking up books…</string>
+    <string name="library_fill_progress">Looked up %1$d of %2$d books…</string>
+    <string name="library_filled">Updated %1$d books.</string>
 </resources>

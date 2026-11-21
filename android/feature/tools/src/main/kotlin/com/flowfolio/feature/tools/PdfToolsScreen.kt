@@ -213,7 +213,7 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
                 stringResource(R.string.tools_choose_pdf)
             }
         )
-        if (state.files.isEmpty()) {
+        if (state.files.isEmpty() && tool.input != ToolInput.NONE) {
             Text(stringResource(R.string.tools_no_files), style = FlowFolioType.body.copy(color = p.ink2))
         }
         state.files.forEachIndexed { i, f ->
@@ -256,24 +256,28 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
             }
         }
         Spacer(Modifier.height(8.dp))
-        FlowFolioButton(
-            text = when (tool.input) {
-                ToolInput.ONE_PDF -> stringResource(R.string.tools_choose_pdf)
-                ToolInput.MANY_PDF -> stringResource(R.string.tools_choose_pdfs)
-                ToolInput.IMAGES -> stringResource(R.string.tools_choose_images)
-                ToolInput.BOOK -> stringResource(R.string.tools_choose_book)
-            },
-            onClick = {
-                when (tool.input) {
-                    ToolInput.ONE_PDF -> pickOne.launch(pdfMime)
-                    ToolInput.MANY_PDF -> pickMany.launch(pdfMime)
-                    ToolInput.IMAGES -> pickMany.launch(imageMime)
-                    ToolInput.BOOK -> pickOne.launch(bookMime)
-                }
-            },
-            style = ButtonStyle.SOFT,
-            icon = Glyph.Add
-        )
+        if (tool.input != ToolInput.NONE) {
+            FlowFolioButton(
+                text = when (tool.input) {
+                    ToolInput.ONE_PDF -> stringResource(R.string.tools_choose_pdf)
+                    ToolInput.MANY_PDF -> stringResource(R.string.tools_choose_pdfs)
+                    ToolInput.IMAGES -> stringResource(R.string.tools_choose_images)
+                    ToolInput.BOOK -> stringResource(R.string.tools_choose_book)
+                    ToolInput.NONE -> ""
+                },
+                onClick = {
+                    when (tool.input) {
+                        ToolInput.ONE_PDF -> pickOne.launch(pdfMime)
+                        ToolInput.MANY_PDF -> pickMany.launch(pdfMime)
+                        ToolInput.IMAGES -> pickMany.launch(imageMime)
+                        ToolInput.BOOK -> pickOne.launch(bookMime)
+                        ToolInput.NONE -> Unit
+                    }
+                },
+                style = ButtonStyle.SOFT,
+                icon = Glyph.Add
+            )
+        }
 
         Options(tool, o, vm)
 
@@ -281,7 +285,7 @@ private fun ToolDetail(tool: PdfTool, state: ToolsState, vm: ToolsViewModel, mod
         FlowFolioButton(
             text = if (state.running) stringResource(R.string.tools_running) else stringResource(R.string.tools_run),
             onClick = vm::run,
-            enabled = state.files.isNotEmpty() && !state.running,
+            enabled = (state.files.isNotEmpty() || tool.input == ToolInput.NONE) && !state.running,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -382,6 +386,10 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
         PdfTool.REDACT -> ToolField(stringResource(R.string.opt_redact_words), o.text, { v ->
             vm.options { it.copy(text = v) }
         })
+
+        PdfTool.BLANK_PDF -> ToolField(stringResource(R.string.opt_blank_pages), o.every, { v ->
+            vm.options { it.copy(every = v) }
+        }, number = true)
 
         PdfTool.NUMBERS -> ToolField(stringResource(R.string.opt_start), o.start, { v ->
             vm.options { it.copy(start = v) }

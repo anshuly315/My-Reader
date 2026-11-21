@@ -109,7 +109,7 @@ class ToolsViewModel @Inject constructor(
     fun run() {
         val s = _state.value
         val tool = s.tool ?: return
-        if (s.files.isEmpty() || s.running) return
+        if ((s.files.isEmpty() && tool.input != ToolInput.NONE) || s.running) return
         _state.update { it.copy(running = true, message = null, failed = false, results = emptyList()) }
         viewModelScope.launch {
             try {
@@ -123,7 +123,7 @@ class ToolsViewModel @Inject constructor(
 
     private fun execute(tool: PdfTool, input: List<File>, o: ToolOptions): List<File> {
         val out = File(work, "out/${System.currentTimeMillis()}").apply { mkdirs() }
-        val first = input.first()
+        val first = input.firstOrNull() ?: File(out, "blank")
         val stem = first.nameWithoutExtension
         fun pdf(suffix: String) = File(out, "$stem-$suffix.pdf")
         val pageCount by lazy { kit.info(first, if (tool == PdfTool.UNLOCK) o.password else "").pages }
@@ -259,6 +259,8 @@ class ToolsViewModel @Inject constructor(
             PdfTool.TEXT_TO_PDF -> listOf(pdf("text").also { kit.textToPdf(first, it) })
 
             PdfTool.BOOKMARKS -> listOf(pdf("bookmarked").also { kit.addBookmarks(first, it, o.text) })
+
+            PdfTool.BLANK_PDF -> listOf(File(out, "blank.pdf").also { kit.blankPdf(it, o.every.toIntOrNull() ?: 1) })
 
             PdfTool.HEALTH -> listOf(File(out, "health-check.txt").also { it.writeText(kit.healthCheck(first)) })
 

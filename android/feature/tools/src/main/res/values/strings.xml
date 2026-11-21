@@ -188,4 +188,7 @@
     <string name="tools_choose_tools_sub">Hide the ones you never use. You can bring them back any time.</string>
     <string name="tools_show_all">Show all</string>
     <string name="tools_done">Done</string>
+    <string name="tool_blank_pdf">New blank PDF</string>
+    <string name="tool_blank_pdf_sub">Empty A4 pages to write on or fill in.</string>
+    <string name="opt_blank_pages">How many pages</string>
 </resources>

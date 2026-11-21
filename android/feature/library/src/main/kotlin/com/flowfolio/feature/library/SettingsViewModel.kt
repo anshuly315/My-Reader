@@ -70,6 +70,10 @@ data class SettingsActions(
     /** Housekeeping and updates (owner, M5 round 4). */
     val onClearCache: () -> Unit = {},
     val onResetApp: () -> Unit = {},
+    val onExportSettings: suspend () -> String = { "" },
+    val onImportSettings: suspend (String) -> Int = { 0 },
+    val onFillDetails: suspend ((Int, Int) -> Unit) -> Int = { 0 },
+    val onScanFolders: suspend () -> Int = { 0 },
     val onCheckUpdates: () -> Unit = {},
     val onDownloadUpdate: () -> Unit = {},
     val onInstallUpdate: () -> Unit = {},
@@ -105,8 +109,19 @@ class SettingsViewModel @Inject constructor(
     private val ambience: Ambience,
     private val maintenance: Maintenance,
     private val updates: Updates,
-    private val ocrPack: com.flowfolio.core.data.ocr.OcrPack
+    private val ocrPack: com.flowfolio.core.data.ocr.OcrPack,
+    private val filler: com.flowfolio.core.data.BookDetailsFiller,
+    private val folders: com.flowfolio.core.data.FolderSync
 ) : ViewModel() {
+    suspend fun exportSettings() = repo.exportSettings()
+
+    suspend fun importSettings(text: String) = repo.importSettings(text)
+
+    suspend fun fillDetails(onProgress: (Int, Int) -> Unit) = filler.fill(onProgress)
+
+    /** Looks in every remembered folder again and answers how many new books it brought in. */
+    suspend fun scanFolders() = folders.sync(inPlaceOnly = false).added.size
+
     // ---- Scanned books (Phase 7, ADR-0054) ----
 
     /** Whether the scanned-books pack is installed, downloading or missing. */

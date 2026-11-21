@@ -702,6 +702,18 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         }
     }
 
+    /** A new PDF of [pages] empty A4 pages (1 to 500). */
+    fun blankPdf(output: File, pages: Int) {
+        require(pages in 1..MAX_BLANK_PAGES) { "Choose between 1 and $MAX_BLANK_PAGES pages." }
+        val doc = PDDocument()
+        try {
+            repeat(pages) { doc.addPage(PDPage(PDRectangle.A4)) }
+            save(doc, output)
+        } finally {
+            doc.close()
+        }
+    }
+
     /** A PDF made from a text, Markdown or HTML file: A4 pages, wrapped lines, "#" headings in bold. */
     @Suppress("NestedBlockDepth")
     fun textToPdf(input: File, output: File) {
@@ -1017,6 +1029,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val NUMBER_SIZE = 10f
         const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
+        const val MAX_BLANK_PAGES = 500
         const val TEXT_MARGIN = 56f
         const val TEXT_BODY = 11f
         const val TEXT_HEAD = 16f
