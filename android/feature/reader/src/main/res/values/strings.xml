@@ -295,4 +295,8 @@
     <string name="reader_ribbons_tab">Ribbons</string>
     <string name="reader_ribbons_none">No ribbons in this book yet. Tap the ribbon at the top to mark a page.</string>
     <string name="reader_demo_never_short">Never show again</string>
+    <string name="reader_volume_keys">Volume buttons turn pages</string>
+    <string name="reader_volume_off">Off</string>
+    <string name="reader_volume_down">Down = next</string>
+    <string name="reader_volume_up">Up = next</string>
 </resources>

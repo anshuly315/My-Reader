@@ -56,6 +56,29 @@ private val DEBUG_EXTRAS = listOf(EXTRA_OPEN_BOOK, EXTRA_IMPORT_PATH, EXTRA_GC_N
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
 
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val volume =
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+        val handler = com.flowfolio.core.model.ReaderKeys.onVolume
+        if (volume && handler != null) {
+            if (event.repeatCount == 0) handler(keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP)
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val volume =
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+        return if (volume &&
+            com.flowfolio.core.model.ReaderKeys.onVolume != null
+        ) {
+            true
+        } else {
+            super.onKeyUp(keyCode, event)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

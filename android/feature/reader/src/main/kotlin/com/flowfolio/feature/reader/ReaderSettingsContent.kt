@@ -265,6 +265,15 @@ private fun ControlsChoice(settings: UserSettings, viewModel: ReaderSettingsView
             modifier = Modifier.fillMaxWidth()
         )
     }
+    StackedOpt(stringResource(R.string.reader_volume_keys)) {
+        FlowFolioSegmented(
+            listOf(R.string.reader_volume_off, R.string.reader_volume_down, R.string.reader_volume_up)
+                .map { stringResource(it) },
+            Options.volumeKeys(settings.options),
+            { viewModel.setOption(Options.VOLUME_KEYS, it.toString()) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     SwitchRow(
         stringResource(R.string.reader_chip_haptics),
         settings.scrubHaptics,

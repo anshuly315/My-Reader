@@ -83,6 +83,7 @@ fun ReaderScreen(
     val navigation by viewModel.navigation.collectAsStateWithLifecycle()
     ReaderDisplayEffects(userSettings.keepScreenOn, userSettings.readerBrightness)
     ReaderOrientationEffect(Options.orientationIndex(userSettings.options))
+    VolumeKeysEffect(Options.volumeKeys(userSettings.options), viewModel)
     TrimMemoryEffect(viewModel::onTrimMemory)
     NarratorNotificationPermission(viewModel)
     // System Back closes the book the same way as the Back button (open panels catch it first).
@@ -432,3 +433,22 @@ private val RIBBON_RISE = 6.dp
 private const val SINGLE_PAGE_GUTTER_STRENGTH = 0.6f
 internal val EDGE_GUARD_WIDTH = 32.dp
 internal val EDGE_GUARD_HEIGHT = 200.dp
+
+/** Volume buttons turn pages while the book is open and the setting is on (one press, one page or spread). */
+@Composable
+private fun VolumeKeysEffect(mode: Int, viewModel: ReaderViewModel) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val latest = androidx.compose.runtime.rememberUpdatedState(state)
+    androidx.compose.runtime.DisposableEffect(mode) {
+        if (mode != 0) {
+            com.flowfolio.core.model.ReaderKeys.onVolume = { up ->
+                (latest.value as? ReaderState.Ready)?.let { s ->
+                    val forward = if (mode == 1) !up else up
+                    val step = if (s.layout == com.flowfolio.feature.reader.layout.ReaderLayout.SPREAD) 2 else 1
+                    viewModel.goToPage(s.anchorPage + if (forward) step else -step)
+                }
+            }
+        }
+        onDispose { com.flowfolio.core.model.ReaderKeys.onVolume = null }
+    }
+}

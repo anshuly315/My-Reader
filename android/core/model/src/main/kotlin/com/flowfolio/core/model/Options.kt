@@ -18,6 +18,7 @@ object Options {
     const val ORIENTATION = "orientation"
     const val BLUE_LIGHT = "blue_light"
     const val COLUMNS = "columns"
+    const val VOLUME_KEYS = "volume_keys"
 
     val orientations = listOf("auto", "portrait", "landscape")
 
@@ -25,6 +26,9 @@ object Options {
 
     /** 0 is off; 1 to 3 warm the screen more and more. */
     fun blueLight(o: Map<String, String>) = (o[BLUE_LIGHT]?.toIntOrNull() ?: 0).coerceIn(0, 3)
+
+    /** The volume buttons in the reader: 0 leave them to the phone, 1 volume down turns forward, 2 volume up does. */
+    fun volumeKeys(o: Map<String, String>) = (o[VOLUME_KEYS]?.toIntOrNull() ?: 0).coerceIn(0, 2)
 
     /** Books across the library grid: 0 lets the screen width decide, 2 to 6 fixes it. */
     fun columns(o: Map<String, String>) = (o[COLUMNS]?.toIntOrNull() ?: 0).let { if (it in 2..6) it else 0 }
@@ -35,7 +39,8 @@ object Options {
     fun glass(o: Map<String, String>): GlassMode =
         runCatching { GlassMode.valueOf(o[GLASS].orEmpty()) }.getOrDefault(GlassMode.FROSTED)
 
-    fun coverRadiusIndex(o: Map<String, String>) = (o[COVER_RADIUS]?.toIntOrNull() ?: 2).coerceIn(0, coverRadiusDp.lastIndex)
+    fun coverRadiusIndex(o: Map<String, String>) =
+        (o[COVER_RADIUS]?.toIntOrNull() ?: 2).coerceIn(0, coverRadiusDp.lastIndex)
 
     fun coverSizeIndex(o: Map<String, String>) = (o[COVER_SIZE]?.toIntOrNull() ?: 1).coerceIn(0, coverSizes.lastIndex)
 
@@ -43,4 +48,11 @@ object Options {
 
     fun hiddenTabs(o: Map<String, String>): Set<String> =
         o[HIDDEN_TABS]?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+}
+
+/** Hands the volume buttons from the activity to the open book while the reader asks for them. */
+object ReaderKeys {
+    /** Set by the open reader (main thread); null when the buttons belong to the phone. */
+    @Volatile
+    var onVolume: ((up: Boolean) -> Unit)? = null
 }
