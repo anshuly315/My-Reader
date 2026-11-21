@@ -90,6 +90,9 @@ import dev.chrisbanes.haze.LocalHazePerformanceMode
 import dev.chrisbanes.haze.rememberHazeState
 
 /** The five top-level destinations the tab bar (folded) and the rail (unfolded) switch between (ADR-0052). */
+/** Routes of the tabs the reader chose to hide on the Customise page (Settings never hides). */
+val LocalHiddenTabs = androidx.compose.runtime.staticCompositionLocalOf<Set<String>> { emptySet() }
+
 enum class TopLevel(val route: String, val glyph: Glyph, @StringRes val label: Int) {
     Library("library", Glyph.Library, R.string.tab_library),
     Shelves("shelves", Glyph.Shelves, R.string.tab_shelves),
@@ -197,7 +200,8 @@ private fun TabBar(selected: TopLevel, onSelect: (TopLevel) -> Unit) {
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TopLevel.entries.forEach {
+        val hidden = LocalHiddenTabs.current
+        TopLevel.entries.filter { it.route !in hidden }.forEach {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TabItem(it, it == selected, onSelect, Modifier.fillMaxWidth())
             }
@@ -227,7 +231,8 @@ private fun Rail(selected: TopLevel, onSelect: (TopLevel) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AppMark(Modifier.padding(bottom = 18.dp))
-        TopLevel.entries.filter { it != TopLevel.Settings }.forEach {
+        val hidden = LocalHiddenTabs.current
+        TopLevel.entries.filter { it != TopLevel.Settings && it.route !in hidden }.forEach {
             TabItem(it, it == selected, onSelect, Modifier.width(RAIL_ITEM))
         }
         Spacer(Modifier.weight(1f))

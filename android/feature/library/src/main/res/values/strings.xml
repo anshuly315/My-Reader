@@ -854,4 +854,19 @@
     <string name="resources_failed">Could not download. Try again later from Settings → Storage.</string>
     <string name="settings_resources">Optional downloads</string>
     <string name="settings_resources_detail">Scanned books, Narrator voices and the dictionary</string>
+    <string name="settings_customise">Customise</string>
+    <string name="settings_customise_summary">Glass, covers, tabs</string>
+    <string name="custom_glass">Glass mode</string>
+    <string name="custom_glass_detail">How much the bars and panels blur what is behind them.</string>
+    <string name="glass_off">Off</string>
+    <string name="glass_soft">Soft</string>
+    <string name="glass_frosted">Frosted</string>
+    <string name="glass_crystal">Crystal</string>
+    <string name="custom_covers">Book covers</string>
+    <string name="custom_cover_size">Cover size in the grid and on shelves</string>
+    <string name="custom_cover_radius">Corner roundness</string>
+    <string name="custom_tabs">Tabs shown</string>
+    <string name="custom_tab_shelves">Shelves</string>
+    <string name="custom_tab_notebook">Notebook</string>
+    <string name="custom_tab_tools">Tools</string>
 </resources>

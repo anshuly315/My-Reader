@@ -34,6 +34,9 @@ interface SettingsRepository {
 
     suspend fun setLibrarySort(sort: LibrarySort)
 
+    /** One Customise choice (see `Options`); values are text. */
+    suspend fun setOption(key: String, value: String) = Unit
+
     /** How the library lays its books out (ADR-0052). */
     suspend fun setLibraryView(view: LibraryView) = Unit
 
@@ -139,6 +142,10 @@ class DefaultSettingsRepository @Inject constructor(private val source: Settings
 
     override suspend fun setLibrarySort(sort: LibrarySort) {
         source.setLibrarySort(sort)
+    }
+
+    override suspend fun setOption(key: String, value: String) {
+        source.setOption(key, value)
     }
 
     override suspend fun setLibraryView(view: LibraryView) {

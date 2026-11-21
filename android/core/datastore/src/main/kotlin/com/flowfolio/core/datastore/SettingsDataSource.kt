@@ -51,6 +51,8 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
             storageNoticeSeen = p[NOTICE_SEEN] ?: defaults.storageNoticeSeen,
             librarySort = p[SORT].toEnum(defaults.librarySort),
             libraryView = p[LIBRARY_VIEW].toEnum(defaults.libraryView),
+            options = p.asMap().entries.filter { it.key.name.startsWith(OPTION_PREFIX) }
+                .associate { it.key.name.removePrefix(OPTION_PREFIX) to it.value.toString() },
             statsBand = p[STATS_BAND].toEnum(defaults.statsBand),
             narratorSkip = p[NARRATOR_SKIP].toEnum(defaults.narratorSkip),
             narratorVoice = p[NARRATOR_VOICE],
@@ -138,6 +140,10 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
 
     suspend fun setLibrarySort(sort: LibrarySort) {
         store.edit { it[SORT] = sort.name }
+    }
+
+    suspend fun setOption(key: String, value: String) {
+        store.edit { it[stringPreferencesKey(OPTION_PREFIX + key)] = value }
     }
 
     suspend fun setLibraryView(view: LibraryView) {
@@ -291,6 +297,7 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
         val THEME = stringPreferencesKey("theme")
         val NOTICE_SEEN = booleanPreferencesKey("storage_notice_seen")
         val SORT = stringPreferencesKey("library_sort")
+        const val OPTION_PREFIX = "opt_"
         val LIBRARY_VIEW = stringPreferencesKey("library_view")
         val STATS_BAND = stringPreferencesKey("library_stats_band")
         val NARRATOR_SKIP = stringPreferencesKey("narrator_skip")

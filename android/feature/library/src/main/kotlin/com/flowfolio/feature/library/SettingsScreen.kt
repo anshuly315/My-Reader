@@ -114,6 +114,7 @@ fun SettingsScreen(
             onAppStyle = viewModel::setAppStyle,
             onMaterialSeed = viewModel::setMaterialSeed,
             onStatsBand = viewModel::setStatsBand,
+            onOption = viewModel::setOption,
             onPageTurn = viewModel::setPageTurn,
             onSpreads = viewModel::setSpreads,
             onCoverAlone = viewModel::setCoverAlone,
@@ -176,6 +177,7 @@ private enum class SettingsPage(val glyph: Glyph, @StringRes val title: Int) {
     Sound(Glyph.Sound, R.string.settings_sound),
     Atmosphere(Glyph.Ambience, R.string.settings_atmosphere),
     Library(Glyph.Library, R.string.settings_library),
+    Customise(Glyph.Paper, R.string.settings_customise),
     Flow(Glyph.DynamicFlow, R.string.settings_conversion),
     Updates(Glyph.Refresh, R.string.settings_updates),
     Storage(Glyph.Storage, R.string.settings_housekeeping),
@@ -227,6 +229,7 @@ private fun SettingsPage.summary(settings: UserSettings, housekeeping: Housekeep
     SettingsPage.Atmosphere -> settings.atmosphereName?.takeIf { settings.atmosphereOn }
         ?: stringResource(R.string.state_off)
 
+    SettingsPage.Customise -> stringResource(R.string.settings_customise_summary)
     SettingsPage.Library -> stringResource(
         if (settings.storageMode == StorageMode.COPY) {
             R.string.settings_library_summary_copy
@@ -426,6 +429,8 @@ private fun SettingsPageScreen(
             SettingsPage.Atmosphere -> AtmosphereGroup(settings, actions, audition)
 
             SettingsPage.Library -> LibraryGroup(settings, actions)
+
+            SettingsPage.Customise -> CustomiseGroup(settings, actions)
 
             SettingsPage.Flow -> ConversionGroup(settings, housekeeping, actions)
 

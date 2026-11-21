@@ -151,6 +151,11 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    /** The Customise page's choices: glass, cover size and radius, hidden tabs. */
+    val options: StateFlow<Map<String, String>> = settings.settings
+        .map { it.options }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     /**
      * Whether the first-run tour and the offer of optional downloads are both behind us, so the "what's new" popup
      * comes after them rather than stacked on them (TM2).

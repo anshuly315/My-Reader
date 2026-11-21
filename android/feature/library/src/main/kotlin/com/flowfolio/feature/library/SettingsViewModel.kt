@@ -41,6 +41,8 @@ data class SettingsActions(
     val onMaterialSeed: (MaterialSeed) -> Unit = {},
     /** The library's stats band: collapsed, expanded or hidden (ADR-0052). */
     val onStatsBand: (StatsBand) -> Unit = {},
+    /** One Customise choice: glass, cover size and radius, hidden tabs. */
+    val onOption: (String, String) -> Unit = { _, _ -> },
     val onNarratorSkip: (NarratorSkip) -> Unit = {},
     val onOcrDownload: () -> Unit = {},
     val onOcrRemove: () -> Unit = {},
@@ -347,6 +349,8 @@ class SettingsViewModel @Inject constructor(
     fun setAppStyle(style: AppStyle) = viewModelScope.launch { repo.setAppStyle(style) }
 
     fun setMaterialSeed(seed: MaterialSeed) = viewModelScope.launch { repo.setMaterialSeed(seed) }
+
+    fun setOption(key: String, value: String) = viewModelScope.launch { repo.setOption(key, value) }
 
     fun setStatsBand(band: StatsBand) = viewModelScope.launch { repo.setStatsBand(band) }
 

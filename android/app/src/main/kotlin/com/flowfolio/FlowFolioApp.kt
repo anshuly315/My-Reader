@@ -34,6 +34,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.flowfolio.core.data.MarkKind
 import com.flowfolio.core.designsystem.FlowFolio
+import com.flowfolio.core.designsystem.GlassStyle
+import com.flowfolio.core.designsystem.LocalCoverRadius
+import com.flowfolio.core.designsystem.LocalCoverScale
+import com.flowfolio.core.designsystem.LocalGlassStyle
+import com.flowfolio.core.model.GlassMode
+import com.flowfolio.core.model.Options
+import androidx.compose.ui.unit.dp
 import com.flowfolio.core.designsystem.FlowFolioType
 import com.flowfolio.core.designsystem.LocalBookOpener
 import com.flowfolio.core.designsystem.LocalDestinationScope
@@ -79,6 +86,18 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
     val entry by nav.currentBackStackEntryAsState()
     // A shelf tapped on the Shelves tab: the library scrolls to its row.
     var shelfToShow by rememberSaveable { mutableStateOf<Long?>(null) }
+    val options by appViewModel.options.collectAsStateWithLifecycle()
+    val glass = Options.glass(options)
+    val palette = FlowFolio.palette
+    CompositionLocalProvider(
+        LocalCoverRadius provides Options.coverRadiusDp[Options.coverRadiusIndex(options)],
+        LocalCoverScale provides Options.coverSizes[Options.coverSizeIndex(options)],
+        LocalHiddenTabs provides Options.hiddenTabs(options),
+        LocalGlassStyle provides GlassStyle(
+            tint = palette.surface.copy(alpha = glass.tint),
+            blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp
+        )
+    ) {
     AppShell(entry?.destination?.route, onSelect = nav::switchTo) {
         SharedTransitionLayout {
             CompositionLocalProvider(
@@ -166,6 +185,7 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
                 }
             }
         }
+    }
     }
     SpotlightHost()
 }

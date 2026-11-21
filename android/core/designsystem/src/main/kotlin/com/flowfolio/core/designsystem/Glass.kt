@@ -35,6 +35,12 @@ data class GlassStyle(val tint: Color? = null, val edge: Color? = null, val blur
 
 val LocalGlassStyle = staticCompositionLocalOf { GlassStyle() }
 
+/** The corner radius, in dp, of book covers: the reader's choice on the Customise page. */
+val LocalCoverRadius = staticCompositionLocalOf { 8 }
+
+/** Scales the books in the grid and shelf views: 1 is the standard size. */
+val LocalCoverScale = staticCompositionLocalOf { 1f }
+
 /** Marks this content as what glass surfaces above it blur (the app's screens, the reader's pages). */
 @Composable
 fun Modifier.glassSource(): Modifier = LocalGlassState.current?.let { hazeSource(it) } ?: this

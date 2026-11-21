@@ -106,6 +106,8 @@ data class UserSettings(
     val librarySort: LibrarySort = LibrarySort.RECENT,
     /** How the library shows its books, remembered (ADR-0052). */
     val libraryView: LibraryView = LibraryView.SHELF,
+    /** Look-and-feel choices (glass, cover size and radius, hidden tabs), keyed as in [Options]. */
+    val options: Map<String, String> = emptyMap(),
     /** What Narrator Mode's previous and next buttons skip by (owner, 2026-11-10). */
     val narratorSkip: NarratorSkip = NarratorSkip.PARAGRAPH,
     /** The phone speech engine's voice Narrator Mode reads with (ADR-0059); null for the engine's own default. */

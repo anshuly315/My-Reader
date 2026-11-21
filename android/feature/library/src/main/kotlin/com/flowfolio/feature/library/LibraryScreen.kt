@@ -300,7 +300,7 @@ fun LibraryContent(
     var searching by rememberSaveable { mutableStateOf(state.query.isNotEmpty()) }
     val list = rememberLazyListState()
     val wide = libraryWide()
-    val perRow = booksPerRow()
+    val perRow = (booksPerRow() / com.flowfolio.core.designsystem.LocalCoverScale.current).toInt().coerceIn(1, 8)
     val gutter = libraryGutter()
     // A tap on the Library tab shows the page from the top (owner, M4c).
     ScrollToTopOnTab("library", list)

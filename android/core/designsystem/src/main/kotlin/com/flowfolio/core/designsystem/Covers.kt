@@ -45,7 +45,8 @@ fun BookCover(
     badges: Set<CoverBadge> = emptySet(),
     badgeSize: Dp = 20.dp
 ) {
-    val shape = RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 8.dp, bottomEnd = 8.dp)
+    val r = LocalCoverRadius.current.dp
+    val shape = RoundedCornerShape(topStart = r / 2, bottomStart = r / 2, topEnd = r, bottomEnd = r)
     Box(
         modifier
             .aspectRatio(COVER_ASPECT)
