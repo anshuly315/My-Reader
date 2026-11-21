@@ -47,6 +47,7 @@ interface DocumentSource {
     fun heldFolders(): List<String> = emptyList()
 }
 
+@Suppress("TooManyFunctions")
 class AndroidDocumentSource @Inject constructor(@ApplicationContext private val context: Context) : DocumentSource {
     private val resolver get() = context.contentResolver
 
