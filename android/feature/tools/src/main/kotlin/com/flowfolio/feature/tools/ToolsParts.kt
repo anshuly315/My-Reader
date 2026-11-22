@@ -35,7 +35,10 @@ internal fun ToolsHeader(
     modifier: Modifier = Modifier
 ) {
     val p = FlowFolio.palette
-    Row(modifier.fillMaxWidth().padding(top = 10.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 4.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         if (onBack != null) {
             FlowFolioIconButton(
                 onClick = onBack,
@@ -49,9 +52,17 @@ internal fun ToolsHeader(
         Column(Modifier.weight(1f)) {
             Text(
                 title,
-                style = FlowFolioType.screenTitle.copy(color = p.ink, fontSize = FlowFolioType.heroTitle.fontSize)
+                style = FlowFolioType.screenTitle.merge(FlowFolio.title),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
-            Text(sub, style = FlowFolioType.sub.copy(color = p.ink2))
+            Text(
+                sub,
+                style = FlowFolioType.sub.merge(FlowFolio.hint),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
     }
 }
