@@ -393,18 +393,18 @@
     <string name="hero_flow_off">Dynamic Flow is off</string>
     <string name="filter_finished">Finished</string>
     <string name="shelf_finished">Finished Books</string>
-    <string name="shelf_favorites">Favorites</string>
-    <string name="action_favorite_add">Add to favorites</string>
-    <string name="action_favorite_remove">Remove from favorites</string>
+    <string name="shelf_favorites">Favourites</string>
+    <string name="action_favorite_add">Add to favourites</string>
+    <string name="action_favorite_remove">Remove from favourites</string>
     <string name="action_remove_from_library">Remove from library</string>
-    <string name="search_favorites_hint">Search favorites</string>
-    <string name="favorites_remove_body">Unfavorite to keep them in your library, or remove them from your library entirely.</string>
+    <string name="search_favorites_hint">Search favourites</string>
+    <string name="favorites_remove_body">Unfavourite to keep them in your library, or remove them from your library entirely.</string>
     <string name="action_mark_finished">Mark as finished</string>
     <string name="action_mark_unfinished">Mark as not finished</string>
     <string name="library_finished">%d finished</string>
     <plurals name="favorite_total">
-        <item quantity="one">%d favorite</item>
-        <item quantity="other">%d favorites</item>
+        <item quantity="one">%d favourite</item>
+        <item quantity="other">%d favourites</item>
     </plurals>
     <plurals name="word_total">
         <item quantity="one">%d dictionary word</item>
@@ -483,7 +483,7 @@
     <string name="goal_day_sun">Sunday</string>
     <string name="goal_reached">Reading goal reached</string>
     <string name="badge_flow">Dynamic Flow</string>
-    <string name="badge_favourite">Favorite</string>
+    <string name="badge_favourite">Favourite</string>
     <string name="badge_bookmarked">Bookmarked</string>
     <string name="action_search_close">Close search</string>
     <!-- Page slogans (owner, M4b). -->
@@ -647,7 +647,7 @@
     <string name="notebook_highlights">Highlights &amp; notes</string>
     <string name="notebook_bookmarks">Bookmarks</string>
     <string name="notebook_words">Words</string>
-    <string name="filter_favorites">Favorites</string>
+    <string name="filter_favorites">Favourites</string>
     <!-- The Library, Quiet Library overhaul (ADR-0052). -->
     <string name="library_search_bar">Search books, highlights, words…</string>
     <string name="library_search_field">Search books, highlights, words, shelves</string>
@@ -672,7 +672,7 @@
     <string name="stats_books">Books</string>
     <string name="stats_in_progress">In progress</string>
     <string name="stats_finished">Finished</string>
-    <string name="stats_favorites">Favorites</string>
+    <string name="stats_favorites">Favourites</string>
     <string name="stats_bookmarks">Bookmarks</string>
     <string name="stats_annotations">Annotations</string>
     <string name="stats_words">Words</string>
@@ -931,7 +931,7 @@
     <string name="sync_now_detail">Updates the sync folder and takes in newer changes from it.</string>
     <string name="sync_running">Syncing…</string>
     <string name="sync_failed">Choose a sync folder first, or the folder could not be reached.</string>
-    <string name="sync_done">Synced. %1$d reading places moved forward; newer settings taken: %2$d.</string>
+    <string name="sync_done">Synced. %1$d reading places moved forward and %3$d highlights and ribbons added. Newer settings taken: %2$d.</string>
     <string name="action_save_epub">Save as e-book (EPUB)</string>
     <string name="save_epub_not_ready">Open this book in Dynamic Flow first and let it finish converting; then it can be saved as an e-book.</string>
 </resources>

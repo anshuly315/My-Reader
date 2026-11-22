@@ -149,7 +149,9 @@ class ToolsViewModel @Inject constructor(
                     (o.targetMb.replace(',', '.').toDoubleOrNull() ?: throw bad("Target size must be a number."))
                         .takeIf { it >= 0.05 } ?: throw bad("Target size must be at least 0.05 MB.")
                 val f = pdf("compressed")
-                val r = kit.compressToSize(first, f, (target * MEGABYTE).toLong())
+                val r = kit.compressToSize(first, f, (target * MEGABYTE).toLong()) { step ->
+                    _state.update { it.copy(message = step, failed = false) }
+                }
                 note = compressNote(first.length(), r, target)
                 listOf(f)
             }

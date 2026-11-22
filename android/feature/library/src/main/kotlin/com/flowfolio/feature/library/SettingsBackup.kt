@@ -120,5 +120,11 @@ internal fun BackupRows(actions: SettingsActions) {
 private fun syncMessage(context: android.content.Context, done: com.flowfolio.core.data.FolderSyncSummary?): String =
     when {
         done == null -> context.getString(R.string.sync_failed)
-        else -> context.getString(R.string.sync_done, done.booksMerged, if (done.settingsFetched) 1 else 0)
+
+        else -> context.getString(
+            R.string.sync_done,
+            done.booksMerged,
+            if (done.settingsFetched) 1 else 0,
+            done.marksMerged
+        )
     }

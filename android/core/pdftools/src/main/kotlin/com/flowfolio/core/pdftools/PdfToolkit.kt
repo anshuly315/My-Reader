@@ -344,29 +344,44 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
     fun compress(input: File, output: File, quality: Int, maxWidth: Int): Long {
         load(input).use2 { d ->
             val seen = HashSet<Any>()
-            for (page in d.pages) {
-                val resources = page.resources ?: continue
-                for (name in resources.xObjectNames) {
-                    val x = resources.getXObject(name)
-                    if (x !is PDImageXObject || !seen.add(x.cosObject)) continue
-                    val bmp = runCatching { x.image }.getOrNull() ?: continue
-                    val scaled = if (bmp.width > maxWidth) {
-                        Bitmap.createScaledBitmap(
-                            bmp,
-                            maxWidth,
-                            (bmp.height.toLong() * maxWidth / bmp.width).toInt().coerceAtLeast(1),
-                            true
-                        )
-                    } else {
-                        bmp
-                    }
-                    val replacement = JPEGFactory.createFromImage(d, scaled, quality.coerceIn(1, 100) / 100f)
-                    resources.put(name, replacement)
-                }
-            }
+            for (page in d.pages) page.resources?.let { shrinkPictures(d, it, seen, quality, maxWidth) }
             save(d, output)
         }
         return input.length() - output.length()
+    }
+
+    /** Recompresses the pictures in [resources], and in the forms inside them; a picture is kept if it is no smaller. */
+    private fun shrinkPictures(
+        d: PDDocument,
+        resources: com.tom_roush.pdfbox.pdmodel.PDResources,
+        seen: HashSet<Any>,
+        quality: Int,
+        maxWidth: Int
+    ) {
+        for (name in resources.xObjectNames) {
+            val x = resources.getXObject(name)
+            if (!seen.add(x.cosObject)) continue
+            if (x is com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject) {
+                x.resources?.let { shrinkPictures(d, it, seen, quality, maxWidth) }
+                continue
+            }
+            if (x !is PDImageXObject) continue
+            val bmp = runCatching { x.image }.getOrNull() ?: continue
+            val scaled = if (bmp.width > maxWidth) {
+                Bitmap.createScaledBitmap(
+                    bmp,
+                    maxWidth,
+                    (bmp.height.toLong() * maxWidth / bmp.width).toInt().coerceAtLeast(1),
+                    true
+                )
+            } else {
+                bmp
+            }
+            val replacement = JPEGFactory.createFromImage(d, scaled, quality.coerceIn(1, 100) / 100f)
+            val before = runCatching { x.stream.length.toLong() }.getOrDefault(Long.MAX_VALUE)
+            val after = runCatching { replacement.stream.length.toLong() }.getOrDefault(0L)
+            if (after < before) resources.put(name, replacement)
+        }
     }
 
     /**
@@ -374,38 +389,60 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
      * more each round; if even the smallest setting is still too big, every page is redrawn as a picture (text can no
      * longer be selected) at lower and lower sharpness. The smallest file made is kept in [output] either way.
      */
-    @Suppress("ReturnCount")
-    fun compressToSize(input: File, output: File, targetBytes: Long): SizeResult {
+    fun compressToSize(input: File, output: File, targetBytes: Long, onStep: (String) -> Unit = {}): SizeResult {
         if (input.length() <= targetBytes) {
             input.copyTo(output, overwrite = true)
             return SizeResult(input.length(), reached = true, flattened = false)
         }
         val trial = File(output.parentFile, "${output.name}.trial")
-        var best = Long.MAX_VALUE
-        var flattened = false
+        var passed = false
+        var size = Long.MAX_VALUE
+        var flat = false
 
-        fun keep(isFlat: Boolean): Boolean {
-            val size = trial.length()
-            if (size < best) {
+        // A trial that fits replaces the output (later ones are gentler); otherwise the smallest miss is kept.
+        fun finish(isFlat: Boolean): Boolean {
+            val s = trial.length()
+            val fits = s <= targetBytes
+            if (fits || (!passed && s < size)) {
                 trial.copyTo(output, overwrite = true)
-                best = size
-                flattened = isFlat
+                size = s
+                flat = isFlat
+                passed = passed || fits
             }
-            return size <= targetBytes
+            return fits
         }
         try {
-            for ((quality, width) in IMAGE_STEPS) {
-                compress(input, trial, quality, width)
-                if (keep(false)) return SizeResult(best, true, false)
+            onStep("Shrinking the pictures…")
+            val fitted = searchSteps(IMAGE_STEPS.size) { i ->
+                compress(input, trial, IMAGE_STEPS[i].first, IMAGE_STEPS[i].second)
+                finish(false)
             }
-            for ((dpi, quality) in PAGE_STEPS) {
-                rasterize(input, trial, dpi, quality = quality) { _, _ -> }
-                if (keep(true)) return SizeResult(best, true, true)
+            if (!fitted) {
+                onStep("Redrawing the pages…")
+                searchSteps(PAGE_STEPS.size) { i ->
+                    rasterize(input, trial, PAGE_STEPS[i].first, quality = PAGE_STEPS[i].second) { _, _ -> }
+                    finish(true)
+                }
             }
         } finally {
             trial.delete()
         }
-        return SizeResult(best, reached = false, flattened = flattened)
+        return SizeResult(size, passed, flat)
+    }
+
+    /**
+     * Finds the gentlest of [count] steps (0 gentlest) for which [fits] is true, trying the harshest first: if even
+     * that misses, nothing else is tried. Sizes only fall as steps get harsher, so the rest is a binary search.
+     */
+    private fun searchSteps(count: Int, fits: (Int) -> Boolean): Boolean {
+        if (!fits(count - 1)) return false
+        var lo = 0
+        var hi = count - 2
+        while (lo <= hi) {
+            val mid = (lo + hi) / 2
+            if (fits(mid)) hi = mid - 1 else lo = mid + 1
+        }
+        return true
     }
 
     /** Drops pages with no text and no pictures (scanner separators, accidental blanks). Returns how many were removed. */
