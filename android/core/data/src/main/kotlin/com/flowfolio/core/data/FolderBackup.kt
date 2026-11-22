@@ -24,7 +24,14 @@ data class FolderSyncSummary(val settingsFetched: Boolean, val booksMerged: Int,
  * finished books, in two small text files. Point the folder at one a sync app (Syncthing, Drive, Dropbox) watches and
  * other devices pick the files up from there. The newer settings file wins; reading places only ever move forward.
  */
-@Suppress("TooManyFunctions", "LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth", "LongParameterList")
+@Suppress(
+    "TooManyFunctions",
+    "LongMethod",
+    "CyclomaticComplexMethod",
+    "NestedBlockDepth",
+    "LongParameterList",
+    "LoopWithTooManyJumpStatements"
+)
 class FolderBackup @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
@@ -42,6 +49,20 @@ class FolderBackup @Inject constructor(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
         }
+    }
+
+    /**
+     * Syncs with the folder chosen in Settings, if one is, and notes when; null when no folder is chosen or the
+     * folder can no longer be reached.
+     */
+    suspend fun syncSaved(): FolderSyncSummary? {
+        val o = settings.settings.first().options
+        val folder = o[com.flowfolio.core.model.Options.SYNC_FOLDER] ?: return null
+        val last = o[com.flowfolio.core.model.Options.SYNC_LAST]?.toLongOrNull() ?: 0L
+        return runCatching { sync(folder, last) }.getOrNull()
+            ?.also {
+                settings.setOption(com.flowfolio.core.model.Options.SYNC_LAST, System.currentTimeMillis().toString())
+            }
     }
 
     /** Syncs both files with the folder [treeUri]; [lastSync] is when this phone last did (millis, 0: never). */
@@ -64,8 +85,15 @@ class FolderBackup @Inject constructor(
     }
 
     private suspend fun progressText(): String = library.observeBooks(LibrarySort.RECENT).first().joinToString("\n") {
-        listOf(it.id, it.lastPage ?: -1, if (it.favorite) 1 else 0, if (it.finishedAtMillis != null) 1 else 0)
-            .joinToString("\t")
+        listOf(
+            it.id,
+            it.lastPage ?: -1,
+            if (it.favorite) 1 else 0,
+            if (it.finishedAtMillis != null) 1 else 0,
+            esc(it.lastLocator),
+            esc(it.flowLocator),
+            it.lastOpenedAtMillis ?: 0
+        ).joinToString("\t")
     }
 
     private fun esc(t: String?): String = (t ?: "").replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
@@ -153,7 +181,15 @@ class FolderBackup @Inject constructor(
             val f = line.split('\t')
             val book = known[f.getOrNull(0)] ?: continue
             val page = f.getOrNull(1)?.toIntOrNull() ?: -1
-            if (page > (book.lastPage ?: -1)) {
+            val openedThere = f.getOrNull(OPENED_AT)?.toLongOrNull() ?: 0L
+            if (openedThere > (book.lastOpenedAtMillis ?: 0L) && page >= 0) {
+                // Read more recently on the other device: its place wins, back as well as forward, EPUB places too.
+                val locator = f.getOrNull(LOCATOR_AT)?.let(::unesc)?.ifBlank { null }
+                val flow = f.getOrNull(FLOW_AT)?.let(::unesc)?.ifBlank { null }
+                library.setSyncedPlace(book.id, page, locator, flow, openedThere)
+                n++
+            } else if (openedThere == 0L && page > (book.lastPage ?: -1)) {
+                // A file from an older build carries no times: only move forward, as it used to.
                 library.advanceTo(book.id, page)
                 n++
             }
@@ -211,5 +247,8 @@ class FolderBackup @Inject constructor(
         const val H_UPDATED = 12
         const val FAVORITE_AT = 2
         const val FINISHED_AT = 3
+        const val LOCATOR_AT = 4
+        const val FLOW_AT = 5
+        const val OPENED_AT = 6
     }
 }

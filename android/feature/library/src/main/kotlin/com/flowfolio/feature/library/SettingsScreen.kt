@@ -100,6 +100,7 @@ import kotlin.math.roundToInt
 @Suppress("LongMethod")
 fun SettingsScreen(
     onOpenLicenses: () -> Unit = {},
+    onOpenAi: () -> Unit = {},
     scrollToUpdates: Int = 0,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -161,7 +162,8 @@ fun SettingsScreen(
         audition,
         Housekeeping(viewModel.installedVersion, update, cacheBytes, ocrPack, viewModel.ocrPackBytes),
         onOpenLicenses,
-        scrollToUpdates
+        scrollToUpdates,
+        onOpenAi
     )
 }
 
@@ -183,7 +185,8 @@ private enum class SettingsPage(val glyph: Glyph, @StringRes val title: Int) {
     Sound(Glyph.Sound, R.string.settings_sound),
     Atmosphere(Glyph.Ambience, R.string.settings_atmosphere),
     Library(Glyph.Library, R.string.settings_library),
-    Customise(Glyph.Paper, R.string.settings_customise),
+    Ai(Glyph.Sparkle, R.string.settings_ai),
+    Backup(Glyph.Folder, R.string.settings_backup),
     Flow(Glyph.DynamicFlow, R.string.settings_conversion),
     Updates(Glyph.Refresh, R.string.settings_updates),
     Storage(Glyph.Storage, R.string.settings_housekeeping),
@@ -235,7 +238,11 @@ private fun SettingsPage.summary(settings: UserSettings, housekeeping: Housekeep
     SettingsPage.Atmosphere -> settings.atmosphereName?.takeIf { settings.atmosphereOn }
         ?: stringResource(R.string.state_off)
 
-    SettingsPage.Customise -> stringResource(R.string.settings_customise_summary)
+    SettingsPage.Ai -> stringResource(R.string.settings_ai_summary)
+
+    SettingsPage.Backup -> settings.options[com.flowfolio.core.model.Options.SYNC_FOLDER]
+        ?.let { stringResource(R.string.settings_backup_summary_on) }
+        ?: stringResource(R.string.settings_backup_summary_off)
 
     SettingsPage.Library -> stringResource(
         if (settings.storageMode == StorageMode.COPY) {
@@ -373,6 +380,7 @@ private fun SettingsHubRow(
 }
 
 /** A dedicated settings page: back, a piece of art (the page's own icon), then its settings. */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun SettingsPageScreen(
     page: SettingsPage,
@@ -418,7 +426,10 @@ private fun SettingsPageScreen(
             )
         }
         when (page) {
-            SettingsPage.Appearance -> AppearanceGroup(settings, actions)
+            SettingsPage.Appearance -> {
+                AppearanceGroup(settings, actions)
+                AppearanceExtras(settings, actions)
+            }
 
             SettingsPage.Text -> {
                 Text(
@@ -429,15 +440,24 @@ private fun SettingsPageScreen(
                 TextGroup(settings.text, 2, actions.onReaderText)
             }
 
-            SettingsPage.Reading -> ReadingGroup(settings, actions)
+            SettingsPage.Reading -> {
+                ReadingGroup(settings, actions)
+                ReadingExtras(settings, actions)
+            }
 
             SettingsPage.Sound -> SoundGroup(settings, actions)
 
             SettingsPage.Atmosphere -> AtmosphereGroup(settings, actions, audition)
 
-            SettingsPage.Library -> LibraryGroup(settings, actions)
+            SettingsPage.Library -> {
+                LibraryGroup(settings, actions)
+                LibraryExtras(settings, actions)
+            }
 
-            SettingsPage.Customise -> CustomiseGroup(settings, actions)
+            // Opened from the hub straight into the AI screen; this page only shows if that is not wired.
+            SettingsPage.Ai -> Unit
+
+            SettingsPage.Backup -> SyncBackupGroups(settings, actions)
 
             SettingsPage.Flow -> ConversionGroup(settings, housekeeping, actions)
 
@@ -463,9 +483,12 @@ fun SettingsContent(
     audition: Audition = Audition.IDLE,
     housekeeping: Housekeeping = Housekeeping(),
     onOpenLicenses: () -> Unit = {},
-    scrollToUpdates: Int = 0
+    scrollToUpdates: Int = 0,
+    onOpenAi: () -> Unit = {}
 ) {
     var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    // AI has a screen of its own (shared with the Tools tab), so its hub row opens that instead of a page.
+    val pick: (SettingsPage) -> Unit = { if (it == SettingsPage.Ai) onOpenAi() else page = it }
     // A banner tap opens the Updates page directly (ADR-0048).
     LaunchedEffect(scrollToUpdates) {
         if (scrollToUpdates > 0) page = SettingsPage.Updates
@@ -481,7 +504,7 @@ fun SettingsContent(
                 SettingsMenu(
                     settings,
                     housekeeping,
-                    { page = it },
+                    pick,
                     Modifier.width(WIDE_LIST),
                     compact = true,
                     selected = shown
@@ -531,7 +554,7 @@ fun SettingsContent(
                 label = "settingsPage"
             ) { p ->
                 if (p == null) {
-                    SettingsMenu(settings, housekeeping, { page = it }, Modifier.fillMaxSize())
+                    SettingsMenu(settings, housekeeping, pick, Modifier.fillMaxSize())
                 } else {
                     SettingsPageScreen(
                         p,

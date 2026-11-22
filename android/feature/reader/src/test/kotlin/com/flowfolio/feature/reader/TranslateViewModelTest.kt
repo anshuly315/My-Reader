@@ -106,7 +106,13 @@ class TranslateViewModelTest {
     }
 
     private fun vm(detected: String?, settings: UserSettings = UserSettings()) = Settings(settings).let { s ->
-        TranslateViewModel(SavedStateHandle(mapOf("bookId" to "b")), FakeTranslations(FakeTranslator(detected)), s) to s
+        TranslateViewModel(
+            SavedStateHandle(mapOf("bookId" to "b")),
+            FakeTranslations(FakeTranslator(detected)),
+            s,
+            com.flowfolio.core.ai.AiTranslation.None
+        ) to
+            s
     }
 
     @Test

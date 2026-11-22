@@ -53,7 +53,13 @@ data class PdfInfo(
 )
 
 /** What [PdfToolkit.compressToSize] made: its size, whether the target was met, and whether pages became pictures. */
-data class SizeResult(val bytes: Long, val reached: Boolean, val flattened: Boolean)
+data class SizeResult(
+    val bytes: Long,
+    val reached: Boolean,
+    val flattened: Boolean,
+    /** False when the reader kept the text, so pages were never redrawn as pictures. */
+    val triedPictures: Boolean = true
+)
 
 /**
  * The PDF tools, after Stirling-PDF's, running on the phone: nothing is uploaded. Each function reads files and writes a
@@ -163,65 +169,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
     /** The pages in a new order: [order] lists the old page numbers as they should now follow each other. */
     fun reorder(input: File, output: File, order: List<Int>) = extractPages(input, output, order)
 
-    /** Diagonal text across every page, [opacity] 0..1. Text is limited to what the PDF base fonts can draw. */
-    fun watermark(input: File, output: File, text: String, opacity: Float, fontSize: Float) {
-        val safe = text.filter { it.code in 32..126 || it.code in 160..255 }.trim()
-        require(safe.isNotEmpty()) { "The watermark needs text the standard PDF fonts can draw (Latin letters)." }
-        load(input).use2 { d ->
-            val font = PDType1Font.HELVETICA_BOLD
-            val state = PDExtendedGraphicsState().apply {
-                nonStrokingAlphaConstant = opacity.coerceIn(0.05f, 1f)
-            }
-            for (page in d.pages) {
-                val box = page.mediaBox
-                PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                    cs.setGraphicsStateParameters(state)
-                    cs.setNonStrokingColor(GREY, GREY, GREY)
-                    cs.beginText()
-                    cs.setFont(font, fontSize)
-                    val width = font.getStringWidth(safe) / 1000f * fontSize
-                    val x = (box.width - width / 1.4142f) / 2f
-                    val y = box.height / 2f - width / 1.4142f / 2f
-                    val rad = Math.toRadians(45.0)
-                    cs.setTextMatrix(
-                        com.tom_roush.pdfbox.util.Matrix(
-                            Math.cos(rad).toFloat(),
-                            Math.sin(rad).toFloat(),
-                            -Math.sin(rad).toFloat(),
-                            Math.cos(rad).toFloat(),
-                            x,
-                            y
-                        )
-                    )
-                    cs.showText(safe)
-                    cs.endText()
-                }
-            }
-            save(d, output)
-        }
-    }
-
-    /** "Page N of M" along the bottom of each page. */
-    fun pageNumbers(input: File, output: File, start: Int) {
-        load(input).use2 { d ->
-            val font = PDType1Font.HELVETICA
-            val total = d.numberOfPages
-            d.pages.forEachIndexed { i, page ->
-                val label = "Page ${start + i} of ${start + total - 1}"
-                val width = font.getStringWidth(label) / 1000f * NUMBER_SIZE
-                val box = page.mediaBox
-                PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                    cs.beginText()
-                    cs.setFont(font, NUMBER_SIZE)
-                    cs.newLineAtOffset((box.width - width) / 2f, NUMBER_MARGIN)
-                    cs.showText(label)
-                    cs.endText()
-                }
-            }
-            save(d, output)
-        }
-    }
-
     /** Locks [input] with a password to open it ([userPassword]) and, optionally, a separate owner password. */
     fun protect(input: File, output: File, userPassword: String, ownerPassword: String = userPassword) {
         require(userPassword.isNotEmpty()) { "Enter a password." }
@@ -276,32 +223,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
                     box.width - margin * 2,
                     box.height - margin * 2
                 )
-            }
-            save(d, output)
-        }
-    }
-
-    /** All the text, page by page; scanned pages have none (use OCR first). */
-    fun extractText(input: File, password: String = ""): String =
-        load(input, password).use2 { PDFTextStripper().getText(it) }
-
-    /** One page per image, each scaled to the image's own size, on a white sheet. */
-    fun imagesToPdf(images: List<File>, output: File) {
-        require(images.isNotEmpty()) { "Choose at least one picture." }
-        PDDocument().use2 { d ->
-            for (file in images) {
-                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                    ?: throw PdfToolException("${file.name} is not a picture that can be read.")
-                try {
-                    val image = LosslessFactory.createFromImage(d, bitmap)
-                    val page = PDPage(PDRectangle(bitmap.width.toFloat(), bitmap.height.toFloat()))
-                    d.addPage(page)
-                    PDPageContentStream(d, page).use {
-                        it.drawImage(image, 0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
-                    }
-                } finally {
-                    bitmap.recycle()
-                }
             }
             save(d, output)
         }
@@ -389,7 +310,13 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
      * more each round; if even the smallest setting is still too big, every page is redrawn as a picture (text can no
      * longer be selected) at lower and lower sharpness. The smallest file made is kept in [output] either way.
      */
-    fun compressToSize(input: File, output: File, targetBytes: Long, onStep: (String) -> Unit = {}): SizeResult {
+    fun compressToSize(
+        input: File,
+        output: File,
+        targetBytes: Long,
+        allowPictures: Boolean = true,
+        onStep: (String) -> Unit = {}
+    ): SizeResult {
         if (input.length() <= targetBytes) {
             input.copyTo(output, overwrite = true)
             return SizeResult(input.length(), reached = true, flattened = false)
@@ -417,7 +344,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
                 compress(input, trial, IMAGE_STEPS[i].first, IMAGE_STEPS[i].second)
                 finish(false)
             }
-            if (!fitted) {
+            if (!fitted && allowPictures) {
                 onStep("Redrawing the pages…")
                 searchSteps(PAGE_STEPS.size) { i ->
                     rasterize(input, trial, PAGE_STEPS[i].first, quality = PAGE_STEPS[i].second) { _, _ -> }
@@ -427,7 +354,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         } finally {
             trial.delete()
         }
-        return SizeResult(size, passed, flat)
+        return SizeResult(size, passed, flat, triedPictures = allowPictures)
     }
 
     /**
@@ -463,33 +390,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         blank.forEach { d.removePage(it) }
         save(d, output)
         blank.size
-    }
-
-    /** Strips scripts, attached files, form-submit actions and metadata, the things a document can carry that you may not want to share. */
-    fun sanitize(input: File, output: File) {
-        load(input).use2 { d ->
-            val catalog = d.documentCatalog
-            catalog.names?.cosObject?.apply {
-                removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("JavaScript"))
-                removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("EmbeddedFiles"))
-            }
-            catalog.cosObject.removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("OpenAction"))
-            catalog.cosObject.removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("AA"))
-            catalog.metadata = null
-            d.documentInformation = com.tom_roush.pdfbox.pdmodel.PDDocumentInformation()
-            for (page in d.pages) {
-                page.cosObject.removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("AA"))
-                page.annotations.forEach { a ->
-                    a.cosObject.removeItem(com.tom_roush.pdfbox.cos.COSName.getPDFName("A"))
-                }
-            }
-            save(d, output)
-        }
-    }
-
-    /** Rewrites the file from its parsed contents, which fixes many files other readers refuse to open. */
-    fun repair(input: File, output: File) {
-        load(input).use2 { d -> save(d, output) }
     }
 
     /** Puts [perSheet] pages (2, 4, 6, 9 or 16) on each sheet, on the size of the first page. */
@@ -539,50 +439,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
                 save(out, output)
             }
         }
-    }
-
-    /** All pages stacked into one long page, handy for reading a document as a scroll. */
-    fun singlePage(input: File, output: File) {
-        load(input).use2 { src ->
-            PDDocument().use2 { out ->
-                val layer = com.tom_roush.pdfbox.multipdf.LayerUtility(out)
-                val width = (0 until src.numberOfPages).maxOf { src.getPage(it).mediaBox.width }
-                val height = (0 until src.numberOfPages).sumOf { src.getPage(it).mediaBox.height.toDouble() }.toFloat()
-                val page = PDPage(PDRectangle(width, height))
-                out.addPage(page)
-                PDPageContentStream(out, page, PDPageContentStream.AppendMode.APPEND, true).use { cs ->
-                    var y = height
-                    for (i in 0 until src.numberOfPages) {
-                        val box = src.getPage(i).mediaBox
-                        y -= box.height
-                        cs.saveGraphicsState()
-                        cs.transform(com.tom_roush.pdfbox.util.Matrix.getTranslateInstance(0f, y))
-                        cs.drawForm(layer.importPageAsForm(src, i))
-                        cs.restoreGraphicsState()
-                    }
-                }
-                save(out, output)
-            }
-        }
-    }
-
-    /** Saves each embedded picture as a PNG into [outDir]. */
-    fun extractImages(input: File, outDir: File): List<File> {
-        outDir.mkdirs()
-        val files = mutableListOf<File>()
-        load(input).use2 { d ->
-            d.pages.forEachIndexed { p, page ->
-                val res = page.resources ?: return@forEachIndexed
-                res.xObjectNames.forEachIndexed { n, name ->
-                    val image = res.getXObject(name) as? PDImageXObject ?: return@forEachIndexed
-                    val f = File(outDir, "page%03d-%02d.png".format(p + 1, n + 1))
-                    FileOutputStream(f).use { image.image.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    files += f
-                }
-            }
-        }
-        if (files.isEmpty()) throw PdfToolException("There are no pictures in this document.")
-        return files
     }
 
     /** Fits every page on an A4 sheet, centred and shrunk or grown to fit. */
@@ -651,15 +507,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         }
     }
 
-    /** Cuts the file into parts that are each about [maxMegabytes] or smaller. */
-    fun splitBySize(input: File, outDir: File, maxMegabytes: Int): List<File> {
-        require(maxMegabytes > 0) { "Enter a size in megabytes." }
-        val pages = load(input).use2 { it.numberOfPages }
-        val limit = maxMegabytes * BYTES_PER_MB
-        val parts = ((input.length() + limit - 1) / limit).toInt().coerceAtLeast(1)
-        return split(input, outDir, ((pages + parts - 1) / parts).coerceAtLeast(1))
-    }
-
     /** One file per top-level bookmark (chapter), named after it. */
     fun splitByBookmarks(input: File, outDir: File): List<File> {
         outDir.mkdirs()
@@ -692,19 +539,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         return result
     }
 
-    /** Takes the pictures out of every page, leaving the text. Pictures inside other drawings are kept. */
-    fun removeImages(input: File, output: File) {
-        load(input).use2 { d ->
-            for (page in d.pages) {
-                val res = page.resources ?: continue
-                val dict = res.cosObject.getDictionaryObject(com.tom_roush.pdfbox.cos.COSName.XOBJECT)
-                    as? com.tom_roush.pdfbox.cos.COSDictionary ?: continue
-                res.xObjectNames.filter { res.getXObject(it) is PDImageXObject }.forEach { dict.removeItem(it) }
-            }
-            save(d, output)
-        }
-    }
-
     /** Removes notes, highlights and drawn marks; links stay so the contents still work. */
     fun removeAnnotations(input: File, output: File) {
         load(input).use2 { d ->
@@ -713,230 +547,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
                     page.annotations.filterIsInstance<com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink>()
             }
             save(d, output)
-        }
-    }
-
-    /** Saves the files attached inside the document. */
-    fun extractAttachments(input: File, outDir: File): List<File> {
-        outDir.mkdirs()
-        val files = mutableListOf<File>()
-        load(input).use2 { d ->
-            fun walk(
-                node:
-                com.tom_roush.pdfbox.pdmodel.common.PDNameTreeNode<com.tom_roush.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification>
-            ) {
-                node.names?.forEach { (name, spec) ->
-                    val bytes = spec.embeddedFile?.toByteArray() ?: return@forEach
-                    val f = File(outDir, name.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifEmpty { "attachment" })
-                    f.writeBytes(bytes)
-                    files += f
-                }
-                node.kids?.forEach { walk(it) }
-            }
-            d.documentCatalog.names?.embeddedFiles?.let { walk(it) }
-        }
-        if (files.isEmpty()) throw PdfToolException("This document has no attached files.")
-        return files
-    }
-
-    /** Lays the first page of [top] over every page of [base]. */
-    fun overlay(base: File, top: File, output: File) {
-        load(base).use2 { b ->
-            load(top).use2 { t ->
-                val layer = com.tom_roush.pdfbox.multipdf.LayerUtility(b)
-                val form = layer.importPageAsForm(t, 0)
-                for (page in b.pages) {
-                    PDPageContentStream(b, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                        val box = page.mediaBox
-                        val tb = t.getPage(0).mediaBox
-                        val scale = minOf(box.width / tb.width, box.height / tb.height)
-                        cs.transform(com.tom_roush.pdfbox.util.Matrix.getScaleInstance(scale, scale))
-                        cs.drawForm(form)
-                    }
-                }
-                save(b, output)
-            }
-        }
-    }
-
-    /** Writes [text] at the top or bottom of every page; {n} is the page number and {total} the page count. */
-    fun headerFooter(input: File, output: File, text: String, top: Boolean) {
-        require(text.isNotBlank()) { "Enter the text to add." }
-        load(input).use2 { d ->
-            val font = PDType1Font.HELVETICA
-            val total = d.numberOfPages
-            d.pages.forEachIndexed { i, page ->
-                val line = text.replace("{n}", (i + 1).toString()).replace("{total}", total.toString())
-                val box = page.mediaBox
-                val width = font.getStringWidth(line) / FONT_UNITS * HEADER_SIZE
-                PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                    cs.beginText()
-                    cs.setFont(font, HEADER_SIZE)
-                    cs.newLineAtOffset((box.width - width) / 2, if (top) box.height - HEADER_MARGIN else HEADER_MARGIN)
-                    cs.showText(line)
-                    cs.endText()
-                }
-            }
-            save(d, output)
-        }
-    }
-
-    /** Draws the picture [image] on every page, [widthPercent] of the page width, centred, at [opacity] 0..1. */
-    fun stampImage(pdf: File, image: File, output: File, opacity: Float, widthPercent: Int) {
-        val bitmap = android.graphics.BitmapFactory.decodeFile(image.absolutePath)
-            ?: throw PdfToolException("${image.name} is not a picture that can be read.")
-        try {
-            load(pdf).use2 { d ->
-                val stamp = LosslessFactory.createFromImage(d, bitmap)
-                val state = PDExtendedGraphicsState().apply { nonStrokingAlphaConstant = opacity.coerceIn(0.05f, 1f) }
-                for (page in d.pages) {
-                    val box = page.mediaBox
-                    val w = box.width * widthPercent.coerceIn(MIN_STAMP, MAX_STAMP) / PERCENT
-                    val h = w * bitmap.height / bitmap.width
-                    PDPageContentStream(d, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                        cs.setGraphicsStateParameters(state)
-                        cs.drawImage(stamp, (box.width - w) / 2f, (box.height - h) / 2f, w, h)
-                    }
-                }
-                save(d, output)
-            }
-        } finally {
-            bitmap.recycle()
-        }
-    }
-
-    /** Turns web addresses written in the text into links that open when tapped; returns how many were made. */
-    fun linkAddresses(input: File, output: File): Int {
-        var made = 0
-        load(input).use2 { d ->
-            val found = ArrayList<Pair<Int, com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink>>()
-            val stripper = object : com.tom_roush.pdfbox.text.PDFTextStripper() {
-                override fun writeString(text: String, positions: MutableList<com.tom_roush.pdfbox.text.TextPosition>) {
-                    for (m in URL_PATTERN.findAll(text)) {
-                        val span = positions.subList(
-                            m.range.first.coerceAtMost(positions.size - 1),
-                            (m.range.last + 1).coerceAtMost(positions.size)
-                        )
-                        if (span.isEmpty()) continue
-                        val box = PDRectangle(
-                            span.minOf { it.xDirAdj },
-                            d.getPage(currentPageNo - 1).mediaBox.height - span.maxOf { it.yDirAdj },
-                            span.maxOf { it.xDirAdj + it.widthDirAdj } - span.minOf { it.xDirAdj },
-                            span.maxOf { it.heightDir }
-                        )
-                        val address = m.value.trimEnd('.', ',', ')', ';')
-                        val link = com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink().apply {
-                            rectangle = box
-                            action = com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI().apply {
-                                uri = if (address.startsWith("www.")) "https://$address" else address
-                            }
-                            setBorderStyle(
-                                com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDBorderStyleDictionary().apply {
-                                    width =
-                                        0f
-                                }
-                            )
-                        }
-                        found += (currentPageNo - 1) to link
-                    }
-                    super.writeString(text, positions)
-                }
-            }
-            stripper.getText(d)
-            for ((index, link) in found) {
-                d.getPage(index).annotations.add(link)
-                made++
-            }
-            save(d, output)
-        }
-        return made
-    }
-
-    /** A new PDF of [pages] empty A4 pages (1 to 500). */
-    fun blankPdf(output: File, pages: Int) {
-        require(pages in 1..MAX_BLANK_PAGES) { "Choose between 1 and $MAX_BLANK_PAGES pages." }
-        val doc = PDDocument()
-        try {
-            repeat(pages) { doc.addPage(PDPage(PDRectangle.A4)) }
-            save(doc, output)
-        } finally {
-            doc.close()
-        }
-    }
-
-    /** Adds bookmarks from lines like "Introduction, 3" (a title, a comma, the page); replaces the old ones. */
-    fun addBookmarks(input: File, output: File, spec: String) {
-        val entries = spec.lines().map { it.trim() }.filter { it.isNotEmpty() }.map {
-            val at = it.lastIndexOf(',')
-            require(at > 0) { "Write each bookmark as: title, page number." }
-            it.substring(0, at).trim() to (
-                it.substring(at + 1).trim().toIntOrNull()
-                    ?: throw IllegalArgumentException("\"${it.substring(at + 1).trim()}\" is not a page number.")
-                )
-        }
-        require(entries.isNotEmpty()) { "Enter at least one bookmark." }
-        load(input).use2 { d ->
-            val outline = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline()
-            d.documentCatalog.documentOutline = outline
-            for ((title, page) in entries) {
-                require(page in 1..d.numberOfPages) { "Page $page is not in this PDF (1 to ${d.numberOfPages})." }
-                val item = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem()
-                item.title = title
-                item.destination = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination
-                    .PDPageFitDestination().also { it.page = d.getPage(page - 1) }
-                outline.addLast(item)
-            }
-            outline.openNode()
-            save(d, output)
-        }
-    }
-
-    /** A plain-language report on a PDF: size, pages, text or scanned, fonts, forms, attachments, bookmarks, locks. */
-    @Suppress("CyclomaticComplexMethod")
-    fun healthCheck(input: File): String = load(input).use2 { d ->
-        val fonts = mutableSetOf<String>()
-        var unembedded = 0
-        var images = 0
-        for (page in d.pages) {
-            val res = page.resources ?: continue
-            for (name in res.fontNames) {
-                val f = runCatching { res.getFont(name) }.getOrNull() ?: continue
-                if (fonts.add(f.name ?: name.name) && !f.isEmbedded && !f.isStandard14) unembedded++
-            }
-            images += res.xObjectNames.count { runCatching { res.isImageXObject(it) }.getOrDefault(false) }
-        }
-        val text = PDFTextStripper().also { it.endPage = minOf(d.numberOfPages, HEALTH_SAMPLE_PAGES) }.getText(d)
-        val info = d.documentInformation
-        val files = d.documentCatalog.names?.embeddedFiles?.names?.size ?: 0
-        val forms = d.documentCatalog.acroForm?.fields?.size ?: 0
-        val links = d.pages.sumOf { p -> p.annotations.count { it.subtype == "Link" } }
-        buildString {
-            appendLine("PDF health check")
-            appendLine("File size: ${"%.1f".format(input.length() / BYTES_PER_MB.toFloat())} MB")
-            appendLine("Pages: ${d.numberOfPages}   PDF version: ${d.version}")
-            appendLine("Locked: ${if (d.isEncrypted) "yes (needs a password or has permissions)" else "no"}")
-            appendLine(
-                "Text: " +
-                    if (text.isBlank()) {
-                        "none found in the first pages: this looks scanned, so run OCR to search it"
-                    } else {
-                        "searchable"
-                    }
-            )
-            appendLine("Pictures on pages: $images")
-            appendLine(
-                "Fonts: ${fonts.size}" +
-                    if (unembedded >
-                        0
-                    ) {
-                        " ($unembedded not embedded; may look different on other devices)"
-                    } else {
-                        " (all embedded)"
-                    }
-            )
-            appendLine("Form fields: $forms   Attachments: $files   Links: $links")
-            appendLine("Bookmarks: ${if (d.documentCatalog.documentOutline?.hasChildren() == true) "yes" else "none"}")
-            appendLine("Title: ${info.title ?: "not set"}   Author: ${info.author ?: "not set"}")
         }
     }
 
@@ -969,77 +579,6 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         if (x.size != y.size) sb.append("\nA has ${x.size} pages, B has ${y.size}.\n")
         return sb.toString()
     }
-
-    /**
-     * Blacks out every place [terms] appear. The pages are redrawn as pictures with the boxes burned in, so the
-     * hidden words are gone from the file and cannot be copied out. The result is no longer searchable.
-     */
-    fun redact(input: File, output: File, terms: List<String>, dpi: Int = RASTER_DPI) {
-        val wanted = terms.map { it.trim() }.filter { it.isNotEmpty() }
-        require(wanted.isNotEmpty()) { "Enter the words to black out, separated by commas." }
-        val boxes = mutableMapOf<Int, MutableList<android.graphics.RectF>>()
-        var hits = 0
-        load(input).use2 { d ->
-            for (p in 1..d.numberOfPages) {
-                val stripper = object : PDFTextStripper() {
-                    override fun writeString(
-                        text: String,
-                        positions: MutableList<com.tom_roush.pdfbox.text.TextPosition>
-                    ) {
-                        for (term in wanted) {
-                            var from = text.indexOf(term, ignoreCase = true)
-                            while (from >= 0) {
-                                val span = positions.subList(from, minOf(from + term.length, positions.size))
-                                if (span.isNotEmpty()) {
-                                    val left = span.minOf { it.xDirAdj }
-                                    val right = span.maxOf { it.xDirAdj + it.widthDirAdj }
-                                    val top = span.minOf { it.yDirAdj - it.heightDir }
-                                    val bottom = span.maxOf { it.yDirAdj }
-                                    boxes.getOrPut(p) {
-                                        mutableListOf()
-                                    }.add(android.graphics.RectF(left, top, right, bottom))
-                                    hits++
-                                }
-                                from = text.indexOf(term, from + term.length, ignoreCase = true)
-                            }
-                        }
-                    }
-                }
-                stripper.startPage = p
-                stripper.endPage = p
-                stripper.getText(d)
-            }
-        }
-        if (hits == 0) throw PdfToolException("None of those words were found.")
-        val k = dpi / PDF_DPI.toFloat()
-        rasterize(input, output, dpi) { bmp, page ->
-            val c = android.graphics.Canvas(bmp)
-            val paint = android.graphics.Paint().apply { color = Color.BLACK }
-            boxes[page]?.forEach { r ->
-                c.drawRect(r.left * k - 1, r.top * k - 1, r.right * k + 1, r.bottom * k + 1, paint)
-            }
-        }
-    }
-
-    /** Redraws every page in grey tones (pictures; the text stops being searchable). */
-    fun grayscale(input: File, output: File) = rasterize(
-        input,
-        output,
-        RASTER_DPI,
-        colorFilter = android.graphics.ColorMatrix().apply {
-            setSaturation(0f)
-        }
-    ) { _, _ -> }
-
-    /** Redraws every page with the colours reversed, which saves ink and suits night reading. */
-    fun invert(input: File, output: File) = rasterize(
-        input,
-        output,
-        RASTER_DPI,
-        colorFilter = android.graphics.ColorMatrix(
-            floatArrayOf(-1f, 0f, 0f, 0f, 255f, 0f, -1f, 0f, 0f, 255f, 0f, 0f, -1f, 0f, 255f, 0f, 0f, 0f, 1f, 0f)
-        )
-    ) { _, _ -> }
 
     private fun rasterize(
         input: File,
@@ -1096,21 +635,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
     }
 
     private companion object {
-        const val GREY = 0.5f
-        const val NUMBER_SIZE = 10f
-        const val NUMBER_MARGIN = 18f
         const val PDF_DPI = 72
-        const val MAX_BLANK_PAGES = 500
-        const val MIN_STAMP = 5
-        const val MAX_STAMP = 100
-        const val PERCENT = 100f
-        val URL_PATTERN = Regex("""(https?://|www\.)[^\s<>"]+""")
-        const val HEALTH_SAMPLE_PAGES = 5
-        const val BYTES_PER_MB = 1024L * 1024L
-        const val FONT_UNITS = 1000f
-        const val HEADER_SIZE = 10f
-        const val HEADER_MARGIN = 24f
-        const val RASTER_DPI = 150
         const val RASTER_QUALITY = 0.85f
 
         /** Picture quality (percent) and widest side, from gentle to harsh. */

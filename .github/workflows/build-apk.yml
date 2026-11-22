@@ -37,6 +37,13 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;4.1.2" >/dev/null
       - name: Unit tests of the new modules
         run: ./gradlew :core:ai:testDebugUnitTest :core:pdftools:testDebugUnitTest --no-daemon
+      # The sideload key comes from the READER_DEV_KEYSTORE secret (base64 of reader-dev.jks) when it is set, so the
+      # key need not live in the repository; until then the committed copy is used.
+      - name: Restore the signing key from the secret
+        env:
+          KEYSTORE: ${{ secrets.READER_DEV_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then echo "$KEYSTORE" | base64 -d > app/reader-dev.jks; fi
       - name: Build the APK
         run: ./gradlew :app:assembleEssentialDebug -Pflowfolio.abis=arm64-v8a --no-daemon
       - name: Upload APK

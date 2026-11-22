@@ -97,6 +97,9 @@ interface LibraryRepository {
     /** Moves the reading place forward to [page] (0-based); a place already further on is kept. */
     suspend fun advanceTo(bookId: String, page: Int) = Unit
 
+    /** Takes a reading place read more recently on another device (folder sync), page and locators together. */
+    suspend fun setSyncedPlace(bookId: String, page: Int, locator: String?, flow: String?, openedAt: Long) = Unit
+
     /** Marks the book finished now, or not finished (owner, M3T2). */
     suspend fun setFinished(bookId: String, on: Boolean) = Unit
 

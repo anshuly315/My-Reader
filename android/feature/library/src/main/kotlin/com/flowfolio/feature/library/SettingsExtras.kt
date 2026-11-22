@@ -23,11 +23,11 @@ internal val HIDEABLE_TABS =
         "tools" to R.string.custom_tab_tools
     )
 
-/** Customise: glass mode, how books look in the grid and shelves, and which tabs show. */
+/** Appearance, after the theme: glass, the reader's day and night papers, and the widgets' look. */
 @Composable
-internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
+internal fun AppearanceExtras(settings: UserSettings, actions: SettingsActions) {
     val o = settings.options
-    Group(R.string.custom_glass, 3) {
+    Group(R.string.custom_glass, 2) {
         Choice(R.string.custom_glass_detail) {
             FlowFolioSegmented(
                 listOf(R.string.glass_off, R.string.glass_soft, R.string.glass_frosted, R.string.glass_crystal)
@@ -37,6 +37,14 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
             )
         }
     }
+    PaperGroup(settings, actions)
+    WidgetGroup(settings, actions)
+}
+
+/** Library, after import: how covers look, then which tabs show, in which order, and what the app opens on. */
+@Composable
+internal fun LibraryExtras(settings: UserSettings, actions: SettingsActions) {
+    val o = settings.options
     Group(R.string.custom_covers, 4) {
         Choice(R.string.custom_cover_size) {
             FlowFolioSegmented(
@@ -63,25 +71,75 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
         }
     }
     StartupGroup(settings, actions)
-    WidgetGroup(settings, actions)
-    Group(R.string.custom_tabs, 5) {
-        val hidden = Options.hiddenTabs(o)
-        HIDEABLE_TABS.forEachIndexed { i, (route, label) ->
+    LibraryUpkeepGroup(actions, 7)
+}
+
+/** Reading, after spreads and turns: what taps and the volume buttons do, the blue-light filter and orientation. */
+@Composable
+internal fun ReadingExtras(settings: UserSettings, actions: SettingsActions) {
+    val o = settings.options
+    Group(R.string.reading_taps, 3) {
+        listOf(
+            R.string.reading_tap_left to Options.TAP_LEFT,
+            R.string.reading_tap_centre to Options.TAP_CENTRE,
+            R.string.reading_tap_right to Options.TAP_RIGHT
+        ).forEachIndexed { i, (label, key) ->
             if (i > 0) Divider()
-            SwitchRow(label, null, route !in hidden, { on ->
-                val next = if (on) hidden - route else hidden + route
-                actions.onOption(Options.HIDDEN_TABS, next.joinToString(","))
-            })
+            Choice(label) {
+                FlowFolioSegmented(
+                    listOf(
+                        R.string.reading_tap_usual,
+                        R.string.reading_tap_back,
+                        R.string.reading_tap_next,
+                        R.string.reading_tap_bars,
+                        R.string.reading_tap_nothing
+                    ).map { stringResource(it) },
+                    Options.tapAction(o, key),
+                    { actions.onOption(key, it.toString()) }
+                )
+            }
+        }
+        Divider()
+        Choice(R.string.reading_volume) {
+            FlowFolioSegmented(
+                listOf(R.string.reading_volume_off, R.string.reading_volume_down, R.string.reading_volume_up)
+                    .map { stringResource(it) },
+                Options.volumeKeys(o),
+                { actions.onOption(Options.VOLUME_KEYS, it.toString()) }
+            )
+        }
+    }
+    Group(R.string.reading_screen, 4) {
+        Choice(R.string.reading_blue) {
+            FlowFolioSegmented(
+                listOf(R.string.reading_off, R.string.reading_low, R.string.reading_medium, R.string.reading_high)
+                    .map { stringResource(it) },
+                Options.blueLight(o),
+                { actions.onOption(Options.BLUE_LIGHT, it.toString()) }
+            )
+        }
+        Divider()
+        Choice(R.string.reading_orientation) {
+            FlowFolioSegmented(
+                listOf(
+                    R.string.reading_orient_auto,
+                    R.string.reading_orient_portrait,
+                    R.string.reading_orient_landscape
+                )
+                    .map { stringResource(it) },
+                Options.orientationIndex(o),
+                { actions.onOption(Options.ORIENTATION, Options.orientations[it]) }
+            )
         }
     }
 }
 
-/** Start-up and day/night choices: which tab opens, reopening the last book, tab order, and Auto's papers. */
+/** Start-up and tabs: which tab opens, reopening the last book, tab order, and which tabs show. */
 @Composable
-internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
+private fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
     val o = settings.options
     val routes = listOf("library", "shelves", "notebook", "tools")
-    Group(R.string.custom_startup, 6) {
+    Group(R.string.custom_startup, 5) {
         Choice(R.string.custom_start_tab) {
             FlowFolioSegmented(
                 (listOf(R.string.custom_tab_library) + HIDEABLE_TABS.map { it.second }).map { stringResource(it) },
@@ -107,7 +165,23 @@ internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
             )
         }
     }
-    Group(R.string.custom_daynight, 7) {
+    Group(R.string.custom_tabs, 6) {
+        val hidden = Options.hiddenTabs(o)
+        HIDEABLE_TABS.forEachIndexed { i, (route, label) ->
+            if (i > 0) Divider()
+            SwitchRow(label, null, route !in hidden, { on ->
+                val next = if (on) hidden - route else hidden + route
+                actions.onOption(Options.HIDDEN_TABS, next.joinToString(","))
+            })
+        }
+    }
+}
+
+/** The papers Auto uses by day and by night. */
+@Composable
+private fun PaperGroup(settings: UserSettings, actions: SettingsActions) {
+    val o = settings.options
+    Group(R.string.custom_daynight, 3) {
         Choice(R.string.custom_day_paper) {
             FlowFolioSegmented(
                 listOf(R.string.custom_paper_auto, R.string.custom_paper_paper, R.string.custom_paper_sepia)
@@ -130,9 +204,9 @@ internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
 
 /** The home-screen widgets' colours and how see-through their background is. */
 @Composable
-internal fun WidgetGroup(settings: UserSettings, actions: SettingsActions) {
+private fun WidgetGroup(settings: UserSettings, actions: SettingsActions) {
     val o = settings.options
-    Group(R.string.custom_widgets, 8) {
+    Group(R.string.custom_widgets, 4) {
         Choice(R.string.custom_widget_theme) {
             FlowFolioSegmented(
                 listOf(R.string.custom_widget_follow, R.string.custom_widget_light, R.string.custom_widget_dark)

@@ -126,10 +126,7 @@ class SettingsViewModel @Inject constructor(
             repo.setOption(SYNC_FOLDER, tree.toString())
             repo.setOption(SYNC_LAST, "0")
         }
-        val folder = repo.settings.first().options[SYNC_FOLDER] ?: return null
-        val last = repo.settings.first().options[SYNC_LAST]?.toLongOrNull() ?: 0L
-        return runCatching { folderBackup.sync(folder, last) }.getOrNull()
-            ?.also { repo.setOption(SYNC_LAST, System.currentTimeMillis().toString()) }
+        return folderBackup.syncSaved()
     }
 
     suspend fun fillDetails(onProgress: (Int, Int) -> Unit) = filler.fill(onProgress)
@@ -420,5 +417,5 @@ class SettingsViewModel @Inject constructor(
     }
 }
 
-private const val SYNC_FOLDER = "sync_folder"
-private const val SYNC_LAST = "sync_last"
+private const val SYNC_FOLDER = com.flowfolio.core.model.Options.SYNC_FOLDER
+private const val SYNC_LAST = com.flowfolio.core.model.Options.SYNC_LAST

@@ -299,17 +299,15 @@
     <string name="reader_volume_off">Off</string>
     <string name="reader_volume_down">Down = next</string>
     <string name="reader_volume_up">Up = next</string>
-    <string name="reader_tap_zone">Tap to turn pages</string>
-    <string name="reader_tap_halves">Halves</string>
-    <string name="reader_tap_edges">Edges only</string>
-    <string name="reader_tap_off">Off</string>
-    <string name="reader_tap_left">Tap on the left third</string>
-    <string name="reader_tap_centre">Tap on the middle third</string>
-    <string name="reader_tap_right">Tap on the right third</string>
+    <string name="reader_tap_left">Left third of the page</string>
+    <string name="reader_tap_centre">Middle third</string>
+    <string name="reader_tap_right">Right third</string>
     <string name="reader_tap_usual">Usual</string>
     <string name="reader_tap_back">Back</string>
     <string name="reader_tap_next">Next</string>
     <string name="reader_tap_bars">Bars</string>
-    <string name="reader_tap_nothing">Nothing</string>
+    <string name="reader_tap_nothing">None</string>
     <string name="reader_translate_ai">AI</string>
+    <string name="reader_translate_fell_back">The AI did not answer, so the phone translated it instead.</string>
+    <string name="reader_translate_online">AI translation sends this passage to the online service chosen in Settings → AI.</string>
 </resources>

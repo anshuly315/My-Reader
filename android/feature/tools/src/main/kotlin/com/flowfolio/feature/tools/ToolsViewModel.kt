@@ -52,8 +52,24 @@ class ToolsViewModel @Inject constructor(
 
     private val work get() = File(context.cacheDir, "pdf-tools").apply { mkdirs() }
 
+    /** Remembers each tool's last choices and the tools used most recently, on this phone only. */
+    private val prefs = context.getSharedPreferences("pdf_tools", Context.MODE_PRIVATE)
+
+    private val _recent = MutableStateFlow(
+        prefs.getString(RECENT_KEY, "").orEmpty().split(',').mapNotNull { name ->
+            PdfTool.entries.firstOrNull { it.name == name }
+        }
+    )
+
+    /** The last few tools used, newest first, for the row above the grid. */
+    val recent: StateFlow<List<PdfTool>> = _recent.asStateFlow()
+
     fun open(tool: PdfTool) {
-        _state.value = ToolsState(tool = tool, options = ToolOptions())
+        _state.value =
+            ToolsState(tool = tool, options = ToolOptions.decode(prefs.getString(OPTIONS_KEY + tool.name, null)))
+        val next = (listOf(tool) + _recent.value.filter { it != tool }).take(RECENT_COUNT)
+        _recent.value = next
+        prefs.edit().putString(RECENT_KEY, next.joinToString(",") { it.name }).apply()
     }
 
     fun close() {
@@ -106,6 +122,7 @@ class ToolsViewModel @Inject constructor(
         val tool = s.tool ?: return
         if ((s.files.isEmpty() && tool.input != ToolInput.NONE) || s.running) return
         _state.update { it.copy(running = true, message = null, failed = false, results = emptyList()) }
+        prefs.edit().putString(OPTIONS_KEY + tool.name, s.options.encode()).apply()
         viewModelScope.launch {
             try {
                 val results = kit.run { execute(tool, s.files.map { it.file }, s.options) }
@@ -149,7 +166,7 @@ class ToolsViewModel @Inject constructor(
                     (o.targetMb.replace(',', '.').toDoubleOrNull() ?: throw bad("Target size must be a number."))
                         .takeIf { it >= 0.05 } ?: throw bad("Target size must be at least 0.05 MB.")
                 val f = pdf("compressed")
-                val r = kit.compressToSize(first, f, (target * MEGABYTE).toLong()) { step ->
+                val r = kit.compressToSize(first, f, (target * MEGABYTE).toLong(), !o.keepText) { step ->
                     _state.update { it.copy(message = step, failed = false) }
                 }
                 note = compressNote(first.length(), r, target)
@@ -222,6 +239,12 @@ class ToolsViewModel @Inject constructor(
 
         r.reached -> "Made ${mb(r.bytes)} from ${mb(before)}."
 
+        !r.triedPictures ->
+            "Could not reach the target while keeping the text. The smallest it gets is " +
+                "${mb(
+                    r.bytes
+                )} (from ${mb(before)}). Choose “Pictures if needed” to go smaller (text then can't be selected)."
+
         else -> "Could not reach the target. The smallest this PDF gets is ${mb(r.bytes)} (from ${mb(before)})."
     }
 
@@ -274,3 +297,7 @@ class ToolsViewModel @Inject constructor(
 }
 
 private const val MEGABYTE = 1024.0 * 1024.0
+
+private const val RECENT_KEY = "recent"
+private const val OPTIONS_KEY = "options_"
+private const val RECENT_COUNT = 3

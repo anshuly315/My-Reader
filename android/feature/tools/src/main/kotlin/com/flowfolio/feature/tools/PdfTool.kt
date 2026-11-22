@@ -59,5 +59,55 @@ data class ToolOptions(
     val dpi: String = "150",
     val jpeg: Boolean = false,
     val perSheet: Int = 4,
-    val targetMb: String = "5"
-)
+    val targetMb: String = "5",
+    /** Compress: never redraw pages as pictures, so text stays searchable and selectable. */
+    val keepText: Boolean = true
+) {
+    /**
+     * The choices worth keeping for next time, as `key=value` lines. Page lists, passwords and metadata are left out:
+     * they belong to one file, and a password should never be stored.
+     */
+    fun encode(): String = listOf(
+        "every" to every,
+        "degrees" to degrees,
+        "text" to text,
+        "opacity" to opacity,
+        "size" to size,
+        "start" to start,
+        "quality" to quality,
+        "maxWidth" to maxWidth,
+        "margin" to margin,
+        "dpi" to dpi,
+        "jpeg" to jpeg,
+        "perSheet" to perSheet,
+        "targetMb" to targetMb,
+        "keepText" to keepText
+    ).joinToString("\n") { (k, v) -> "$k=${v.toString().replace("\n", " ")}" }
+
+    companion object {
+        /** Reads [encode]'s lines back; anything missing or unreadable keeps its usual value. */
+        @Suppress("CyclomaticComplexMethod")
+        fun decode(text: String?): ToolOptions {
+            if (text.isNullOrBlank()) return ToolOptions()
+            val m = text.lines().mapNotNull { line -> line.split('=', limit = 2).takeIf { it.size == 2 } }
+                .associate { it[0] to it[1] }
+            val d = ToolOptions()
+            return d.copy(
+                every = m["every"] ?: d.every,
+                degrees = m["degrees"]?.toIntOrNull() ?: d.degrees,
+                text = m["text"] ?: d.text,
+                opacity = m["opacity"]?.toFloatOrNull() ?: d.opacity,
+                size = m["size"] ?: d.size,
+                start = m["start"] ?: d.start,
+                quality = m["quality"]?.toFloatOrNull() ?: d.quality,
+                maxWidth = m["maxWidth"] ?: d.maxWidth,
+                margin = m["margin"] ?: d.margin,
+                dpi = m["dpi"] ?: d.dpi,
+                jpeg = m["jpeg"]?.toBooleanStrictOrNull() ?: d.jpeg,
+                perSheet = m["perSheet"]?.toIntOrNull() ?: d.perSheet,
+                targetMb = m["targetMb"] ?: d.targetMb,
+                keepText = m["keepText"]?.toBooleanStrictOrNull() ?: d.keepText
+            )
+        }
+    }
+}

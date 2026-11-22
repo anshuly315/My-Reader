@@ -82,7 +82,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) handleIncoming(intent)
+        if (savedInstanceState == null) {
+            handleIncoming(intent)
+            if (isPlainLaunch(intent)) appViewModel.onPlainLaunch()
+        }
         // Debug builds: `--ez catalog true` shows the design catalog instead of the app (milestone 5 checks).
         val catalog = isDebuggable() && intent.getBooleanExtra(EXTRA_CATALOG, false)
         // `--ez riffleDemo true`: the riffle scrubber on the mock's sample book (ADR-0022), before it joins the reader.
@@ -147,6 +150,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         handleIncoming(intent)
     }
+
+    /** Opened from the launcher icon with nothing to open: no file, no book, no debug extras. */
+    private fun isPlainLaunch(intent: Intent): Boolean = intent.action == Intent.ACTION_MAIN && intent.data == null &&
+        intent.getStringExtra(FlowNotifications.EXTRA_OPEN_BOOK) == null &&
+        DEBUG_EXTRAS.none(intent::hasExtra)
 
     /** PDFs handed over by other apps ("Open with FlowFolio", share sheet) are imported as copies. */
     private fun handleIncoming(intent: Intent) {

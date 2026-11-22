@@ -181,7 +181,6 @@ private fun UpdateButtons(state: UpdateState, actions: SettingsActions, onWhatsN
 internal fun HousekeepingGroup(cacheBytes: Long, actions: SettingsActions) {
     var resetting by rememberSaveable { mutableStateOf(false) }
     Group(R.string.settings_housekeeping, 5) {
-        BackupRows(actions)
         // TM2: the first-launch offer of optional downloads, again.
         ActionRow(R.string.settings_resources, R.string.settings_resources_detail, actions.onOfferResources)
         Divider()
@@ -201,7 +200,9 @@ internal fun HousekeepingGroup(cacheBytes: Long, actions: SettingsActions) {
                 modifier = Modifier.testTag(LibraryTestTags.CACHE_CLEAR)
             )
         }
-        Divider()
+    }
+    // Starting over sits in a group of its own, last, so it is never one row below something harmless.
+    Group(R.string.settings_danger, 6) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

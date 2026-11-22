@@ -18,18 +18,29 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.flowfolio.core.designsystem.FlowFolio
 import com.flowfolio.core.designsystem.FlowFolioType
+import com.flowfolio.core.model.Options
+import com.flowfolio.core.model.UserSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** A one-line note under a group's rows: what the last action did. */
+@Composable
+private fun Note(message: String?) {
+    message?.let {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+            Text(it, style = FlowFolioType.rowDetail.copy(color = FlowFolio.palette.accent))
+        }
+    }
+}
+
 /**
- * Backup and library upkeep in Settings → Storage: save the settings to a file (a Drive, Dropbox or Syncthing folder
- * works too, since the file picker lists them), restore them, look for new books in the remembered folders, and fill
- * in the details and authors books are missing.
+ * Settings → Backup and sync: a folder kept in step with this phone (when it last synced, Sync now, and syncing each
+ * time the app opens), then saving the settings to a file and restoring them.
  */
 @Composable
-@Suppress("LongMethod")
-internal fun BackupRows(actions: SettingsActions) {
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+internal fun SyncBackupGroups(settings: UserSettings, actions: SettingsActions) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
@@ -40,8 +51,7 @@ internal fun BackupRows(actions: SettingsActions) {
                 val ok = withContext(Dispatchers.IO) {
                     runCatching {
                         context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
-                    }
-                        .isSuccess
+                    }.isSuccess
                 }
                 message = context.getString(if (ok) R.string.backup_saved else R.string.backup_failed)
             }
@@ -56,65 +66,116 @@ internal fun BackupRows(actions: SettingsActions) {
                     }.getOrNull()
                 }
                 val n = text?.let { actions.onImportSettings(it) } ?: -1
-                message =
-                    if (n <
-                        0
-                    ) {
-                        context.getString(R.string.backup_not_a_backup)
-                    } else {
-                        context.getString(R.string.backup_restored, n)
-                    }
+                message = if (n < 0) {
+                    context.getString(R.string.backup_not_a_backup)
+                } else {
+                    context.getString(R.string.backup_restored, n)
+                }
             }
         }
     }
+    var syncNote by remember { mutableStateOf<String?>(null) }
     val pickSync = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             scope.launch {
-                message = context.getString(R.string.sync_running)
-                val done = actions.onSyncFolder(uri)
-                message = syncMessage(context, done)
+                syncNote = context.getString(R.string.sync_running)
+                syncNote = syncMessage(context, actions.onSyncFolder(uri))
             }
         }
     }
-    ActionRow(R.string.sync_pick, R.string.sync_pick_detail) { pickSync.launch(null) }
-    Divider()
-    ActionRow(R.string.sync_now, R.string.sync_now_detail) {
-        scope.launch {
-            message = context.getString(R.string.sync_running)
-            message = syncMessage(context, actions.onSyncFolder(null))
-        }
-    }
-    Divider()
-    ActionRow(R.string.backup_save, R.string.backup_save_detail) { save.launch("flowfolio-settings.txt") }
-    Divider()
-    ActionRow(R.string.backup_restore, R.string.backup_restore_detail) { restore.launch(arrayOf("*/*")) }
-    Divider()
-    ActionRow(R.string.library_scan, R.string.library_scan_detail) {
-        scope.launch {
-            message = context.getString(R.string.library_scanning)
-            val n = actions.onScanFolders()
-            message = context.getString(R.string.library_scanned, n)
-        }
-    }
-    Divider()
-    ActionRow(R.string.library_phone, R.string.library_phone_detail) { actions.onOption("phone_scan_asked", "0") }
-    Divider()
-    ActionRow(R.string.library_fill, R.string.library_fill_detail) {
-        scope.launch {
-            message = context.getString(R.string.library_filling)
-            val n = actions.onFillDetails { done, total ->
-                message =
-                    context.getString(R.string.library_fill_progress, done, total)
+    val o = settings.options
+    val folder = o[Options.SYNC_FOLDER]
+    Group(R.string.sync_group, 1) {
+        StatusLine(
+            when {
+                folder == null -> stringResource(R.string.sync_status_none)
+
+                else -> stringResource(
+                    R.string.sync_status,
+                    folderName(folder),
+                    lastSynced(o[Options.SYNC_LAST]?.toLongOrNull() ?: 0L)
+                )
             }
-            message = context.getString(R.string.library_filled, n)
+        )
+        Divider()
+        ActionRow(
+            if (folder == null) R.string.sync_pick else R.string.sync_change,
+            R.string.sync_pick_detail
+        ) { pickSync.launch(null) }
+        if (folder != null) {
+            Divider()
+            ActionRow(R.string.sync_now, R.string.sync_now_detail) {
+                scope.launch {
+                    syncNote = context.getString(R.string.sync_running)
+                    syncNote = syncMessage(context, actions.onSyncFolder(null))
+                }
+            }
+            Divider()
+            SwitchRow(R.string.sync_on_open, R.string.sync_on_open_detail, o[Options.SYNC_ON_OPEN] == "1", {
+                actions.onOption(Options.SYNC_ON_OPEN, if (it) "1" else "0")
+            })
         }
+        Note(syncNote)
     }
-    message?.let {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(it, style = FlowFolioType.rowDetail.copy(color = FlowFolio.palette.accent))
+    Group(R.string.backup_group, 2) {
+        ActionRow(R.string.backup_save, R.string.backup_save_detail) { save.launch("flowfolio-settings.txt") }
+        Divider()
+        ActionRow(R.string.backup_restore, R.string.backup_restore_detail) { restore.launch(arrayOf("*/*")) }
+        Note(message)
+    }
+}
+
+/** Library → Finding books: scan the remembered folders, the whole phone, and fill in missing details. */
+@Composable
+internal fun LibraryUpkeepGroup(actions: SettingsActions, order: Int) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
+    Group(R.string.library_upkeep_group, order) {
+        ActionRow(R.string.library_scan, R.string.library_scan_detail) {
+            scope.launch {
+                message = context.getString(R.string.library_scanning)
+                message = context.getString(R.string.library_scanned, actions.onScanFolders())
+            }
         }
+        Divider()
+        ActionRow(R.string.library_phone, R.string.library_phone_detail) { actions.onOption("phone_scan_asked", "0") }
+        Divider()
+        ActionRow(R.string.library_fill, R.string.library_fill_detail) {
+            scope.launch {
+                message = context.getString(R.string.library_filling)
+                val n = actions.onFillDetails { done, total ->
+                    message = context.getString(R.string.library_fill_progress, done, total)
+                }
+                message = context.getString(R.string.library_filled, n)
+            }
+        }
+        Note(message)
     }
-    Divider()
+}
+
+@Composable
+private fun StatusLine(text: String) {
+    Text(
+        text,
+        style = FlowFolioType.rowDetail.copy(color = FlowFolio.palette.ink2),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+    )
+}
+
+/** The folder's own name from its tree address ("primary:Sync/Books" reads "Books"). */
+private fun folderName(tree: String): String =
+    android.net.Uri.decode(tree).substringAfterLast(':').substringAfterLast('/').ifBlank { tree }
+
+@Composable
+private fun lastSynced(at: Long): String = if (at <= 0L) {
+    stringResource(R.string.sync_never)
+} else {
+    android.text.format.DateUtils.getRelativeTimeSpanString(
+        at,
+        System.currentTimeMillis(),
+        android.text.format.DateUtils.MINUTE_IN_MILLIS
+    ).toString()
 }
 
 private fun syncMessage(context: android.content.Context, done: com.flowfolio.core.data.FolderSyncSummary?): String =

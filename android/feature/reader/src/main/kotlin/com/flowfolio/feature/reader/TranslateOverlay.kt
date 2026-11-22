@@ -153,6 +153,12 @@ internal fun Result(state: TranslateUiState) {
                 }
             }
 
+            // The AI's answer as it streams in, so a long passage does not sit behind a spinner.
+            TranslateStatus.TRANSLATING if !state.result.isNullOrBlank() -> Text(
+                state.result,
+                style = FlowFolioType.rowLabel.copy(fontSize = 19.sp, lineHeight = 27.sp).merge(FlowFolio.hint)
+            )
+
             TranslateStatus.FAILED -> Text(
                 stringResource(R.string.reader_translate_failed),
                 style = FlowFolioType.sub.merge(FlowFolio.subItem)
@@ -176,6 +182,18 @@ internal fun Result(state: TranslateUiState) {
                     modifier = Modifier.padding(start = 10.dp)
                 )
             }
+        }
+        val note = when {
+            state.fellBack -> R.string.reader_translate_fell_back
+            state.ai && state.aiOnline -> R.string.reader_translate_online
+            else -> null
+        }
+        note?.let {
+            Text(
+                stringResource(it),
+                style = FlowFolioType.rowDetail.merge(FlowFolio.hint),
+                modifier = Modifier.padding(top = 10.dp)
+            )
         }
     }
 }

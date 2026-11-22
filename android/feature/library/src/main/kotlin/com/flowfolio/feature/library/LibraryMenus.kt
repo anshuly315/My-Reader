@@ -236,6 +236,10 @@ internal fun ImportMenu(actions: LibraryActions) {
                 open = false
                 actions.onImportFolderAsShelves()
             }, glyph = Glyph.Shelves)
+            FlowFolioMenuItem(stringResource(R.string.discover_free_books), {
+                open = false
+                actions.onDiscover()
+            }, glyph = Glyph.OpenBook)
         }
     }
 }

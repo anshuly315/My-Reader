@@ -74,6 +74,8 @@ data class LibraryActions(
     val onImport: () -> Unit = {},
     /** Picks a folder to import, with every folder inside it. */
     val onImportFolder: () -> Unit = {},
+    /** Opens the free public-domain books (Gutenberg, Internet Archive). */
+    val onDiscover: () -> Unit = {},
     /** Makes a shelf from a folder and from every folder inside it. */
     val onFolderToShelves: (FolderEntry) -> Unit = {},
     val onOpen: (LibraryItem, String) -> Unit = { _, _ -> },
@@ -143,6 +145,7 @@ fun LibraryScreen(
     onAnnotations: (Book) -> Unit = {},
     onDictionary: (Book) -> Unit = {},
     onOpenNotebook: (NotebookSection) -> Unit = {},
+    onOpenDiscover: () -> Unit = {},
     scrollToShelf: Long? = null,
     onScrolledToShelf: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -187,6 +190,7 @@ fun LibraryScreen(
             LibraryActions(
                 onImport = { importPicker.launch(PDF_TYPES) },
                 onImportFolder = { folderPicker.launch(null) },
+                onDiscover = onOpenDiscover,
                 onImportFolderAsShelves = { shelvesPicker.launch(null) },
                 onFolderToShelves = viewModel::onFolderToShelves,
                 onOpen = { item, origin ->
@@ -449,6 +453,11 @@ private fun EmptyLibrary(actions: LibraryActions) {
         com.flowfolio.core.designsystem.FlowFolioGhostButton(
             text = stringResource(R.string.import_folder),
             onClick = actions.onImportFolder,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        com.flowfolio.core.designsystem.FlowFolioGhostButton(
+            text = stringResource(R.string.discover_free_books),
+            onClick = actions.onDiscover,
             modifier = Modifier.padding(top = 12.dp)
         )
     }

@@ -860,8 +860,6 @@
     <string name="resources_failed">Could not download. Try again later from Settings → Storage.</string>
     <string name="settings_resources">Optional downloads</string>
     <string name="settings_resources_detail">Scanned books, Narrator voices and the dictionary</string>
-    <string name="settings_customise">Customise</string>
-    <string name="settings_customise_summary">Glass, covers, tabs</string>
     <string name="custom_glass">Glass mode</string>
     <string name="custom_glass_detail">How much the bars and panels blur what is behind them.</string>
     <string name="glass_off">Off</string>
@@ -942,7 +940,46 @@
     <string name="sync_now_detail">Updates the sync folder and takes in newer changes from it.</string>
     <string name="sync_running">Syncing…</string>
     <string name="sync_failed">Choose a sync folder first, or the folder could not be reached.</string>
-    <string name="sync_done">Synced. %1$d reading places moved forward and %3$d highlights and ribbons added. Newer settings taken: %2$d.</string>
+    <string name="sync_done">Synced. %1$d reading places updated and %3$d highlights and ribbons added. Newer settings taken: %2$d.</string>
     <string name="action_save_epub">Save as e-book (EPUB)</string>
     <string name="save_epub_not_ready">Open this book in Dynamic Flow first and let it finish converting; then it can be saved as an e-book.</string>
+    <string name="settings_ai">AI</string>
+    <string name="settings_ai_summary">Provider, key, on-device model</string>
+    <string name="settings_backup">Backup and sync</string>
+    <string name="settings_backup_summary_on">Folder sync on</string>
+    <string name="settings_backup_summary_off">Not syncing</string>
+    <string name="settings_danger">Start over</string>
+    <string name="sync_group">Folder sync</string>
+    <string name="backup_group">Settings file</string>
+    <string name="sync_status_none">No sync folder chosen yet.</string>
+    <string name="sync_status">Syncing with “%1$s”. Last synced: %2$s.</string>
+    <string name="sync_never">never</string>
+    <string name="sync_change">Change the sync folder</string>
+    <string name="sync_on_open">Sync when the app opens</string>
+    <string name="sync_on_open_detail">Takes in changes from your other devices each time FlowFolio starts.</string>
+    <string name="library_upkeep_group">Finding books</string>
+    <string name="reading_taps">Taps and buttons</string>
+    <string name="reading_tap_left">Left third of the page</string>
+    <string name="reading_tap_centre">Middle third</string>
+    <string name="reading_tap_right">Right third</string>
+    <string name="reading_tap_usual">Usual</string>
+    <string name="reading_tap_back">Back</string>
+    <string name="reading_tap_next">Next</string>
+    <string name="reading_tap_bars">Bars</string>
+    <string name="reading_tap_nothing">None</string>
+    <string name="reading_volume">Volume buttons turn pages</string>
+    <string name="reading_volume_off">Off</string>
+    <string name="reading_volume_down">Down = next</string>
+    <string name="reading_volume_up">Up = next</string>
+    <string name="reading_screen">Screen</string>
+    <string name="reading_blue">Blue-light filter</string>
+    <string name="reading_off">Off</string>
+    <string name="reading_low">Low</string>
+    <string name="reading_medium">Medium</string>
+    <string name="reading_high">High</string>
+    <string name="reading_orientation">Screen orientation</string>
+    <string name="reading_orient_auto">Auto</string>
+    <string name="reading_orient_portrait">Portrait</string>
+    <string name="reading_orient_landscape">Landscape</string>
+    <string name="discover_free_books">Find free books</string>
 </resources>

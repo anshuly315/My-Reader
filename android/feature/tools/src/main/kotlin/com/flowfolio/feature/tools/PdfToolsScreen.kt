@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,8 +58,9 @@ import com.flowfolio.core.designsystem.chromeStart
  * Everything runs on the phone.
  */
 @Composable
-fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: ToolsViewModel = hiltViewModel()) {
+fun PdfToolsScreen(onOpenAi: () -> Unit, viewModel: ToolsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val recent by viewModel.recent.collectAsStateWithLifecycle()
     val ai by viewModel.ai.collectAsStateWithLifecycle()
     val tool = state.tool
     val prefs = LocalToolPrefs.current
@@ -77,7 +79,19 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                 title = if (tool == null) stringResource(R.string.tools_title) else stringResource(tool.title),
                 sub = if (tool == null) stringResource(R.string.tools_sub) else stringResource(tool.sub),
                 backLabel = stringResource(R.string.tools_back),
-                onBack = if (tool == null) null else ({ viewModel.close() })
+                onBack = if (tool == null) null else ({ viewModel.close() }),
+                actions = if (tool == null && !managing) {
+                    {
+                        FlowFolioIconButton(
+                            onClick = { managing = true },
+                            tooltip = stringResource(R.string.tools_choose_tools)
+                        ) {
+                            FlowFolioGlyph(Glyph.Sliders, null, size = 20.dp)
+                        }
+                    }
+                } else {
+                    null
+                }
             )
             if (tool == null && managing) {
                 ManageTools(prefs) { managing = false }
@@ -97,8 +111,11 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                     )
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) { AiCard(ai.preset.label, ai.ready, onOpenAi) }
-                    item(span = { GridItemSpan(maxLineSpan) }) { DiscoverCard(onOpenDiscover) }
-                    item(span = { GridItemSpan(maxLineSpan) }) { ChooseToolsCard { managing = true } }
+                    val shown = recent.filter { it.name !in prefs.hidden }
+                    if (shown.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { RecentTools(shown) { viewModel.open(it) } }
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionLabel(stringResource(R.string.tools_all)) }
+                    }
                     items(
                         prefs.ordered.filter { it.name !in prefs.hidden }
                     ) { t -> ToolCard(t, prefs.view) { viewModel.open(t) } }
@@ -132,35 +149,16 @@ private fun AiCard(provider: String, ready: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** The way into the list that shows or hides each tool. */
+/** The last tools used, as chips above the grid, so a repeat job is one tap. */
 @Composable
-private fun ChooseToolsCard(onClick: () -> Unit) {
-    val p = FlowFolio.palette
-    FlowFolioCard(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        padding = androidx.compose.foundation.layout.PaddingValues(16.dp)
-    ) {
-        Column {
-            Text(stringResource(R.string.tools_choose_tools), style = FlowFolioType.rowLabel.copy(color = p.ink))
-            Text(stringResource(R.string.tools_choose_tools_sub), style = FlowFolioType.rowDetail.copy(color = p.ink2))
-        }
-    }
-}
-
-/** The way into the free-books section. */
-@Composable
-private fun DiscoverCard(onClick: () -> Unit) {
-    val p = FlowFolio.palette
-    FlowFolioCard(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        padding = androidx.compose.foundation.layout.PaddingValues(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            FlowFolioGlyph(Glyph.OpenBook, null, color = p.accent, size = 30.dp)
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.discover_card), style = FlowFolioType.rowLabel.copy(color = p.ink))
-                Text(stringResource(R.string.discover_card_sub), style = FlowFolioType.rowDetail.copy(color = p.ink2))
-            }
+private fun RecentTools(tools: List<PdfTool>, onOpen: (PdfTool) -> Unit) {
+    Column {
+        SectionLabel(stringResource(R.string.tools_recent))
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            tools.forEach { t -> FlowFolioChip(stringResource(t.title), selected = false, onClick = { onOpen(t) }) }
         }
     }
 }
@@ -403,9 +401,25 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
             }
         }
 
-        PdfTool.COMPRESS -> ToolField(stringResource(R.string.opt_target_size), o.targetMb, { v ->
-            vm.options { it.copy(targetMb = v) }
-        }, number = true)
+        PdfTool.COMPRESS -> {
+            ToolField(stringResource(R.string.opt_target_size), o.targetMb, { v ->
+                vm.options { it.copy(targetMb = v) }
+            }, number = true)
+            // Redrawing pages as pictures reaches small sizes but loses search, selection and links.
+            SectionLabel(stringResource(R.string.opt_if_needed))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowFolioChip(
+                    stringResource(R.string.opt_keep_text),
+                    o.keepText,
+                    { vm.options { it.copy(keepText = true) } }
+                )
+                FlowFolioChip(
+                    stringResource(R.string.opt_allow_pictures),
+                    !o.keepText,
+                    { vm.options { it.copy(keepText = false) } }
+                )
+            }
+        }
 
         PdfTool.PROTECT -> {
             ToolField(stringResource(R.string.opt_password), o.password, { v ->

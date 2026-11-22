@@ -301,6 +301,9 @@ class DefaultLibraryRepository @Inject constructor(
         if (page > (book.lastPage ?: -1)) dao.updateLastPage(bookId, page)
     }
 
+    override suspend fun setSyncedPlace(bookId: String, page: Int, locator: String?, flow: String?, openedAt: Long) =
+        withContext(io) { dao.setSyncedPlace(bookId, page, locator, flow, openedAt) }
+
     override suspend fun setFinished(bookId: String, on: Boolean) = withContext(io) {
         dao.setFinishedAt(bookId, if (on) System.currentTimeMillis() else null)
     }

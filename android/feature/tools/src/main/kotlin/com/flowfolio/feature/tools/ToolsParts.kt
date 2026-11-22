@@ -32,7 +32,8 @@ internal fun ToolsHeader(
     sub: String,
     backLabel: String,
     onBack: (() -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actions: (@Composable () -> Unit)? = null
 ) {
     val p = FlowFolio.palette
     Row(
@@ -64,6 +65,7 @@ internal fun ToolsHeader(
                 modifier = Modifier.padding(top = 6.dp)
             )
         }
+        actions?.invoke()
     }
 }
 

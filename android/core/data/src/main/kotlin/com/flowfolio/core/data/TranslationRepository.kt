@@ -112,6 +112,10 @@ interface TranslationRepository {
     /** Translates and remembers it. */
     suspend fun translate(text: String, from: String, to: String, bookId: String?, at: ReadingPlace): Translation
 
+    /** Keeps a translation made elsewhere (by the AI) in the history, like one made on the phone. */
+    @Suppress("LongParameterList")
+    suspend fun save(text: String, translated: String, from: String, to: String, bookId: String?, at: ReadingPlace) {}
+
     /** Forgets one translation (owner, M5 round); the passage it was made from is untouched. */
     suspend fun remove(id: Long) {}
 
@@ -169,6 +173,30 @@ class DefaultTranslationRepository(
         at: ReadingPlace
     ): Translation {
         val result = translator.translate(text, from, to)
+        return record(text, result, from, to, bookId, at)
+    }
+
+    @Suppress("LongParameterList")
+    override suspend fun save(
+        text: String,
+        translated: String,
+        from: String,
+        to: String,
+        bookId: String?,
+        at: ReadingPlace
+    ) {
+        record(text, translated, from, to, bookId, at)
+    }
+
+    @Suppress("LongParameterList")
+    private suspend fun record(
+        text: String,
+        result: String,
+        from: String,
+        to: String,
+        bookId: String?,
+        at: ReadingPlace
+    ): Translation {
         val now = clock.now()
         val id = dao.insert(
             TranslationEntity(

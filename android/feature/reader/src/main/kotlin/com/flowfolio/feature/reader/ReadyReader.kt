@@ -188,16 +188,18 @@ internal fun BoxScope.ReadyReader(
     val onTapAction = { action: Int ->
         val step = if (s.layout == com.flowfolio.feature.reader.layout.ReaderLayout.SPREAD) 2 else 1
         when (action) {
-            1 -> viewModel.goToPage(s.anchorPage - step)
-            2 -> viewModel.goToPage(s.anchorPage + step)
+            1 -> TurnIntent.turn { viewModel.goToPage(s.anchorPage - step) }
+            2 -> TurnIntent.turn { viewModel.goToPage(s.anchorPage + step) }
             else -> overlay.toggle()
         }
     }
     val onTap = { tap: Offset, size: IntSize ->
         val frames = if (s.turn == PageTurn.SCROLL) pageBounds.frames(s, size) else framesFor(size)
+        val route = PageFrames.route(tap, size, frames, links)
+        val onLink = route != PageFrames.TapTarget.Page && route != PageFrames.TapTarget.Centre
         annotating.tap(tap, size) ||
-            customTap(taps, tap, size, onTapAction) ||
-            overlay.handle(PageFrames.route(tap, size, frames, links), jump)
+            (!onLink && overlay.zoom == null && customTap(taps, tap, size, rtl, onTapAction)) ||
+            overlay.handle(route, jump)
     }
     // Under the pages, which cover it: lays out and draws an EPUB's equations, SVG and tables.
     if (s.reflowable) IslandHost(viewModel)
@@ -480,16 +482,44 @@ private fun BoxScope.EdgeGuards() {
  * the tap; "as usual" leaves the tap to the page, so nothing changes until a third is set.
  */
 @Suppress("MagicNumber")
-private fun customTap(options: Map<String, String>, tap: Offset, size: IntSize, perform: (Int) -> Unit): Boolean {
+private fun customTap(
+    options: Map<String, String>,
+    tap: Offset,
+    size: IntSize,
+    rtl: Boolean,
+    perform: (Int) -> Unit
+): Boolean {
     val fraction = tap.x / size.width.coerceAtLeast(1)
     val key = when {
         fraction < TAP_THIRD -> Options.TAP_LEFT
         fraction > 1f - TAP_THIRD -> Options.TAP_RIGHT
         else -> Options.TAP_CENTRE
     }
-    val action = Options.tapAction(options, key)
+    var action = Options.tapAction(options, key)
+    // In a right-to-left book the next page lies to the left, so back and next swap sides.
+    if (rtl && action == 1) {
+        action = 2
+    } else if (rtl && action == 2) {
+        action = 1
+    }
     if (action in 1..3) perform(action)
     return action != 0
+}
+
+/**
+ * A one-unit move asked for by a tap or a volume key: the curl animates it (with its sound) instead of snapping, as
+ * a swipe would. Read once by `FollowJumps`.
+ */
+internal object TurnIntent {
+    @Volatile
+    var animate = false
+
+    inline fun turn(move: () -> Unit) {
+        animate = true
+        move()
+    }
+
+    fun consume(): Boolean = animate.also { animate = false }
 }
 
 private const val TAP_THIRD = 0.3f

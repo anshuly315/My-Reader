@@ -18,7 +18,8 @@ enum class AiTask { EXPLAIN, SUMMARIZE, TRANSLATE, DEFINE, ASK }
  * as it grows.
  */
 @Singleton
-class AiService @Inject constructor(private val settings: AiSettingsStore, private val onDevice: OnDeviceProvider) {
+class AiService @Inject constructor(private val settings: AiSettingsStore, private val onDevice: OnDeviceProvider) :
+    AiTranslation {
     val config: StateFlow<AiConfig> get() = settings.config
 
     private fun provider(c: AiConfig): AiProvider = when (c.backend) {
@@ -39,7 +40,11 @@ class AiService @Inject constructor(private val settings: AiSettingsStore, priva
         chat(AiPrompts.build(task, passage, context, question, languageName(config.value.language)))
 
     /** [passage] translated into the language with BCP-47 [code], whatever the AI settings' own language is. */
-    fun translate(passage: String, code: String): Flow<String> =
+    override val ready: Boolean get() = config.value.ready
+
+    override val online: Boolean get() = config.value.backend != AiBackend.ON_DEVICE
+
+    override fun translate(passage: String, code: String): Flow<String> =
         chat(AiPrompts.build(AiTask.TRANSLATE, passage, null, null, languageName(code)))
 
     /** A follow-up in a conversation that began with [first]. */

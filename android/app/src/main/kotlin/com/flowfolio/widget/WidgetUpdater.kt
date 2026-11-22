@@ -40,7 +40,15 @@ class WidgetUpdater @Inject constructor(
     fun start() {
         val books = library.observeBooks(LibrarySort.RECENT)
             .map { list -> list.map { Triple(it.id, it.lastPage, it.lastOpenedAtMillis to it.finished) } }
-        val look = settings.settings.map { Triple(it.theme, it.appStyle, it.materialSeed) }
+        val look = settings.settings.map {
+            listOf(
+                it.theme,
+                it.appStyle,
+                it.materialSeed,
+                it.options[com.flowfolio.core.model.Options.WIDGET_THEME],
+                it.options[com.flowfolio.core.model.Options.WIDGET_OPACITY]
+            )
+        }
         val goal = combine(goals.observeLibraryGoal(), goals.observePeriodReadMillis(GoalPeriod.DAY)) { g, read ->
             g to read / MINUTE_MS
         }

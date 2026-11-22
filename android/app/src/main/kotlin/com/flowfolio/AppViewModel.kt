@@ -40,13 +40,15 @@ data class AppLook(
 
 /** Activity-scoped state: app theme, and files shared into the app waiting for the library to import them. */
 @HiltViewModel
+@Suppress("LongParameterList")
 class AppViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val reader: ReaderRepository,
     private val flow: DynamicFlow,
     private val updates: Updates,
     private val folders: com.flowfolio.core.data.FolderSync,
-    private val library: com.flowfolio.core.data.LibraryRepository
+    private val library: com.flowfolio.core.data.LibraryRepository,
+    private val folderBackup: com.flowfolio.core.data.FolderBackup
 ) : ViewModel() {
     /** True until the reader has answered the first-start question about the phone's books. */
     val askAboutPhone: StateFlow<Boolean> = settings.settings
@@ -88,7 +90,11 @@ class AppViewModel @Inject constructor(
     val scanAsk: StateFlow<FlowNotice.ScanAsk?> = _scanAsk.asStateFlow()
 
     init {
-        viewModelScope.launch { chooseStart() }
+        // Settings → Backup and sync → "Sync when the app opens": quietly, once per start.
+        viewModelScope.launch {
+            val o = settings.settings.first().options
+            if (o[com.flowfolio.core.model.Options.SYNC_ON_OPEN] == "1") runCatching { folderBackup.syncSaved() }
+        }
         viewModelScope.launch {
             flow.notices.collect { if (it is FlowNotice.ScanAsk) _scanAsk.value = it }
         }
@@ -98,6 +104,14 @@ class AppViewModel @Inject constructor(
 
     /** The tab the reader chose to start on, sent once when the app starts (not when only the screen turns). */
     val startRoutes: Flow<String> = startRoute.receiveAsFlow()
+
+    /**
+     * Called once by the activity on a fresh launch from the home screen (not when Android restores the app, and not
+     * when a file, widget or notification opened it): the start tab, or the last book.
+     */
+    fun onPlainLaunch() {
+        viewModelScope.launch { chooseStart() }
+    }
 
     private suspend fun chooseStart() {
         val o = settings.settings.first().options

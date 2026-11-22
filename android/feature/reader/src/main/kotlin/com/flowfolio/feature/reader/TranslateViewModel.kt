@@ -35,7 +35,11 @@ data class TranslateUiState(
     val status: TranslateStatus = TranslateStatus.DETECTING,
     /** Translating with the AI chosen in Settings → AI, rather than on the phone with ML Kit. */
     val ai: Boolean = false,
-    val aiReady: Boolean = false
+    val aiReady: Boolean = false,
+    /** True when the AI was chosen but failed, so the phone's translator answered instead. */
+    val fellBack: Boolean = false,
+    /** True when the chosen AI sends the passage over the internet rather than running on the phone. */
+    val aiOnline: Boolean = false
 )
 
 /**
@@ -47,7 +51,7 @@ class TranslateViewModel @Inject constructor(
     saved: SavedStateHandle,
     private val repository: TranslationRepository,
     private val settings: SettingsRepository,
-    private val aiService: com.flowfolio.core.ai.AiService
+    private val aiService: com.flowfolio.core.ai.AiTranslation
 ) : ViewModel() {
     private val bookId: String? = saved[ReaderViewModel.ARG_BOOK_ID]
     private var at: ReadingPlace = ReadingPlace.Unknown
@@ -112,7 +116,8 @@ class TranslateViewModel @Inject constructor(
                     to = to,
                     detected = detected != null,
                     ai = options[AI_KEY] == "1",
-                    aiReady = aiService.config.value.ready
+                    aiReady = aiService.ready,
+                    aiOnline = aiService.online
                 )
             }
             run()
@@ -177,10 +182,16 @@ class TranslateViewModel @Inject constructor(
             _state.update { it.copy(result = null, status = TranslateStatus.CHOOSE) }
             return
         }
-        if (s.ai && aiService.config.value.ready) {
+        if (s.ai && aiService.ready) {
             runWithAi(s)
             return
         }
+        _state.update { it.copy(fellBack = false) }
+        runOnPhone(s, from)
+    }
+
+    /** ML Kit on the phone: downloads the two languages if needed, then translates and keeps it in the history. */
+    private suspend fun runOnPhone(s: TranslateUiState, from: String) {
         val ready = runCatching {
             repository.translator.isDownloaded(from) && repository.translator.isDownloaded(s.to)
         }.onFailure { android.util.Log.w("FlowFolioTranslate", "isDownloaded failed", it) }
@@ -201,21 +212,25 @@ class TranslateViewModel @Inject constructor(
         }
     }
 
-    /** Translates with the chosen AI, showing the answer as it grows; it is not added to the history. */
+    /**
+     * Translates with the chosen AI, showing the answer as it grows, and keeps it in the history. If the AI fails
+     * (offline, a bad key, a busy service) the phone's own translator takes over, so the panel still answers.
+     */
     private suspend fun runWithAi(s: TranslateUiState) {
-        _state.update { it.copy(result = null, status = TranslateStatus.TRANSLATING) }
+        _state.update { it.copy(result = null, status = TranslateStatus.TRANSLATING, fellBack = false) }
         val failed = runCatching {
             aiService.translate(s.source, s.to).collect { text ->
                 _state.update { it.copy(result = text, status = TranslateStatus.TRANSLATING) }
             }
         }.onFailure { android.util.Log.w("FlowFolioTranslate", "AI translate failed", it) }.isFailure
-        _state.update {
-            if (failed || it.result.isNullOrBlank()) {
-                it.copy(status = TranslateStatus.FAILED)
-            } else {
-                it.copy(status = TranslateStatus.DONE)
-            }
+        val text = _state.value.result
+        if (failed || text.isNullOrBlank()) {
+            _state.update { it.copy(fellBack = true) }
+            runOnPhone(s, s.from ?: return)
+            return
         }
+        _state.update { it.copy(status = TranslateStatus.DONE) }
+        runCatching { repository.save(s.source, text, s.from ?: "", s.to, bookId, at) }
     }
 
     private companion object {

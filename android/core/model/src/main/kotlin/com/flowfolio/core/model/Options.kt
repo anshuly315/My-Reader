@@ -22,6 +22,9 @@ object Options {
     const val COLUMNS = "columns"
     const val VOLUME_KEYS = "volume_keys"
     const val TAP_ZONE = "tap_zone"
+    const val SYNC_FOLDER = "sync_folder"
+    const val SYNC_LAST = "sync_last"
+    const val SYNC_ON_OPEN = "sync_on_open"
     const val TOOL_ORDER = "tool_order"
     const val TOOL_VIEW = "tool_view"
     const val WIDGET_THEME = "widget_theme"
@@ -59,7 +62,11 @@ object Options {
     fun widgetOpacityIndex(o: Map<String, String>) = (o[WIDGET_OPACITY]?.toIntOrNull() ?: 0).coerceIn(0, 3)
 
     /** What a tap in one third of the page does: 0 as usual, 1 back, 2 forward, 3 show or hide the bars, 4 nothing. */
-    fun tapAction(o: Map<String, String>, key: String) = (o[key]?.toIntOrNull() ?: 0).coerceIn(0, 4)
+    fun tapAction(o: Map<String, String>, key: String): Int {
+        // The old "Off" tap zone (before the three thirds) meant no tap turns a page.
+        val fallback = if (tapZone(o) == 2 && key != TAP_CENTRE) 4 else 0
+        return (o[key]?.toIntOrNull() ?: fallback).coerceIn(0, 4)
+    }
 
     /** The route the app opens on; anything unknown means the library. */
     fun startTab(o: Map<String, String>) = o[START_TAB]?.takeIf { it.isNotBlank() } ?: "library"

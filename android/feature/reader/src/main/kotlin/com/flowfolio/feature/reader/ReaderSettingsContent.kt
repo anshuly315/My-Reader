@@ -267,15 +267,6 @@ private fun ControlsChoice(settings: UserSettings, viewModel: ReaderSettingsView
             modifier = Modifier.fillMaxWidth()
         )
     }
-    StackedOpt(stringResource(R.string.reader_tap_zone)) {
-        FlowFolioSegmented(
-            listOf(R.string.reader_tap_halves, R.string.reader_tap_edges, R.string.reader_tap_off)
-                .map { stringResource(it) },
-            Options.tapZone(settings.options),
-            { viewModel.setOption(Options.TAP_ZONE, it.toString()) },
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
     TapAction(R.string.reader_tap_left, Options.TAP_LEFT, settings, viewModel)
     TapAction(R.string.reader_tap_centre, Options.TAP_CENTRE, settings, viewModel)
     TapAction(R.string.reader_tap_right, Options.TAP_RIGHT, settings, viewModel)

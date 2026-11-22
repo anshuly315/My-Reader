@@ -152,6 +152,7 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
                             }
                             ScreenEntrance {
                                 LibraryScreen(
+                                    onOpenDiscover = { nav.navigate(Routes.DISCOVER) },
                                     onOpenDetails = { book, origin -> nav.navigate(Routes.details(book.id, origin)) },
                                     onRead = { book -> nav.navigate(Routes.reader(book.id)) },
                                     onOpenShelf = { id -> nav.navigate(Routes.shelf(id)) },
@@ -186,9 +187,7 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
                         retiredDestinations(nav)
                         destination(TopLevel.Tools.route) {
                             ScreenEntrance {
-                                PdfToolsScreen(onOpenAi = {
-                                    nav.navigate(Routes.AI)
-                                }, onOpenDiscover = { nav.navigate(Routes.DISCOVER) })
+                                PdfToolsScreen(onOpenAi = { nav.navigate(Routes.AI) })
                             }
                         }
                         composable(Routes.DISCOVER) {
@@ -199,9 +198,11 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
                         }
                         destination(TopLevel.Settings.route) {
                             ScreenEntrance {
-                                SettingsScreen(onOpenLicenses = {
-                                    nav.navigate(Routes.LICENSES)
-                                }, scrollToUpdates = updatesFocus)
+                                SettingsScreen(
+                                    onOpenLicenses = { nav.navigate(Routes.LICENSES) },
+                                    onOpenAi = { nav.navigate(Routes.AI) },
+                                    scrollToUpdates = updatesFocus
+                                )
                             }
                         }
                         detailsDestination(nav)

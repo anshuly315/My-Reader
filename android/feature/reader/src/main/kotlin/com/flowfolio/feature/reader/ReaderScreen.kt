@@ -390,8 +390,12 @@ private fun rememberReaderCurlState(unit: Int): PageCurlState {
 private fun FollowJumps(curl: PageCurlState, unit: Int, narrating: Boolean) {
     val isNarrating by rememberUpdatedState(narrating)
     LaunchedEffect(unit) {
+        val asked = TurnIntent.consume()
         if (curl.current != unit) {
-            if (isNarrating && unit == curl.current + 1) {
+            if (asked && unit == curl.current - 1) {
+                curl.prev()
+                if (curl.current != unit) curl.snapTo(unit)
+            } else if ((isNarrating || asked) && unit == curl.current + 1) {
                 curl.next()
                 if (curl.current != unit) {
                     curl.onTurn?.invoke(true)
@@ -475,7 +479,7 @@ private fun VolumeKeysEffect(mode: Int, viewModel: ReaderViewModel) {
                 (latest.value as? ReaderState.Ready)?.let { s ->
                     val forward = if (mode == 1) !up else up
                     val step = if (s.layout == com.flowfolio.feature.reader.layout.ReaderLayout.SPREAD) 2 else 1
-                    viewModel.goToPage(s.anchorPage + if (forward) step else -step)
+                    TurnIntent.turn { viewModel.goToPage(s.anchorPage + if (forward) step else -step) }
                 }
             }
         }

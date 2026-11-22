@@ -147,6 +147,7 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
     suspend fun exportText(): String = buildString {
         appendLine(BACKUP_HEADER)
         store.data.first().asMap().entries.sortedBy { it.key.name }.forEach { (k, v) ->
+            if (k.name in DEVICE_ONLY) return@forEach
             val (type, text) = when (v) {
                 is String -> "S" to enc(v)
                 is Boolean -> "B" to v.toString()
@@ -162,14 +163,14 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
     }
 
     /** Puts back settings written by [exportText]; answers how many were restored, or -1 for a file that is not one. */
+    @Suppress("CyclomaticComplexMethod")
     suspend fun importText(text: String): Int {
         val lines = text.lines()
         if (lines.firstOrNull()?.trim() != BACKUP_HEADER) return -1
         var count = 0
         store.edit { p ->
             for (line in lines.drop(1)) {
-                val parts = line.split('\t')
-                if (parts.size != 3) continue
+                val parts = line.split('\t').takeIf { it.size == FIELDS && dec(it[1]) !in DEVICE_ONLY } ?: continue
                 val name = dec(parts[1])
                 val v = parts[2]
                 val ok = runCatching {
@@ -360,6 +361,20 @@ class SettingsDataSource @Inject constructor(private val store: DataStore<Prefer
         val SORT = stringPreferencesKey("library_sort")
         const val OPTION_PREFIX = "opt_"
         const val BACKUP_HEADER = "FlowFolioSettings1"
+
+        /**
+         * Settings that describe this phone, not the reader: the sync folder (another phone's folder address means
+         * nothing here), when this phone last synced, and whether it was asked about scanning its storage. Backups and
+         * folder sync never carry them, so syncing two phones cannot point one at the other's folder.
+         */
+        private const val FIELDS = 3
+
+        val DEVICE_ONLY = setOf(
+            OPTION_PREFIX + "sync_folder",
+            OPTION_PREFIX + "sync_last",
+            OPTION_PREFIX + "sync_on_open",
+            OPTION_PREFIX + "phone_scan_asked"
+        )
         val LIBRARY_VIEW = stringPreferencesKey("library_view")
         val STATS_BAND = stringPreferencesKey("library_stats_band")
         val NARRATOR_SKIP = stringPreferencesKey("narrator_skip")

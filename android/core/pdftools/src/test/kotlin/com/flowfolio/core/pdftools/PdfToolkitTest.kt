@@ -153,28 +153,6 @@ class PdfToolkitTest {
         assertThrows(IllegalArgumentException::class.java) { kit.nUp(pdf("o.pdf", 2), File(tmp.root, "o2.pdf"), 5) }
     }
 
-    @Test
-    fun singlePageStacksEverything() {
-        val out = File(tmp.root, "s.pdf")
-        kit.singlePage(pdf("s.pdf", 3), out)
-        assertEquals(1, pageCount(out))
-    }
-
-    @Test
-    fun sanitizeAndRepairKeepPages() {
-        val a = File(tmp.root, "san.pdf")
-        val b = File(tmp.root, "rep.pdf")
-        kit.sanitize(pdf("x.pdf", 2), a)
-        kit.repair(pdf("y.pdf", 2), b)
-        assertEquals(2, pageCount(a))
-        assertEquals(2, pageCount(b))
-    }
-
-    @Test
-    fun extractImagesWithNoneSaysSo() {
-        assertThrows(PdfToolException::class.java) { kit.extractImages(pdf("z.pdf", 1), File(tmp.root, "imgs")) }
-    }
-
     private fun textPdf(name: String, vararg pageText: String): File {
         val f = tmp.newFile(name)
         PDDocument().use { d ->
@@ -212,45 +190,34 @@ class PdfToolkitTest {
     }
 
     @Test
-    fun splitBySizeMakesMoreThanOnePartForABigLimitFile() {
-        val parts = kit.splitBySize(pdf("big.pdf", 6), File(tmp.root, "parts"), 1)
-        assertEquals(1, parts.size)
-    }
-
-    @Test
     fun noBookmarksSaysSo() {
         assertThrows(PdfToolException::class.java) { kit.splitByBookmarks(pdf("nb.pdf", 2), File(tmp.root, "chap")) }
     }
 
     @Test
-    fun removeImagesAndAnnotationsKeepPages() {
-        val a = File(tmp.root, "ri.pdf")
+    fun removeAnnotationsKeepsPages() {
         val b = File(tmp.root, "ra.pdf")
-        kit.removeImages(pdf("i.pdf", 2), a)
         kit.removeAnnotations(pdf("n.pdf", 2), b)
-        assertEquals(2, pageCount(a))
         assertEquals(2, pageCount(b))
     }
 
     @Test
-    fun noAttachmentsSaysSo() {
-        assertThrows(PdfToolException::class.java) { kit.extractAttachments(pdf("at.pdf", 1), File(tmp.root, "att")) }
+    fun compressToSizeCopiesAFileAlreadyUnderTheTarget() {
+        val input = pdf("small.pdf", 2)
+        val out = File(tmp.root, "small-out.pdf")
+        val r = kit.compressToSize(input, out, input.length() + 1)
+        assertTrue(r.reached)
+        assertEquals(input.length(), out.length())
     }
 
     @Test
-    fun overlayKeepsBasePageCount() {
-        val out = File(tmp.root, "ov.pdf")
-        kit.overlay(pdf("base.pdf", 3), textPdf("top.pdf", "STAMP"), out)
+    fun compressToSizeKeepingTextNeverRedrawsPages() {
+        val input = textPdf("words.pdf", "one", "two", "three")
+        val out = File(tmp.root, "words-out.pdf")
+        val r = kit.compressToSize(input, out, 10, allowPictures = false)
+        assertTrue(!r.reached && !r.flattened && !r.triedPictures)
+        assertTrue(out.exists() && out.length() > 0)
         assertEquals(3, pageCount(out))
-        assertTrue(kit.extractText(out).contains("STAMP"))
-    }
-
-    @Test
-    fun headerAndFooterAddText() {
-        val out = File(tmp.root, "hf.pdf")
-        kit.headerFooter(pdf("h.pdf", 2), out, "Page {n} of {total}", top = false)
-        val text = kit.extractText(out)
-        assertTrue(text.contains("Page 1 of 2") && text.contains("Page 2 of 2"))
     }
 
     @Test
@@ -258,60 +225,5 @@ class PdfToolkitTest {
         val report = kit.compare(textPdf("c1.pdf", "same", "left"), textPdf("c2.pdf", "same", "right"))
         assertTrue(report.contains("Page 2") && report.contains("A only: left") && report.contains("B only: right"))
         assertTrue(kit.compare(textPdf("d1.pdf", "x"), textPdf("d2.pdf", "x")).contains("same on every page"))
-    }
-
-    @Test
-    fun redactRejectsWordsThatAreNotThere() {
-        assertThrows(PdfToolException::class.java) {
-            kit.redact(textPdf("r.pdf", "hello world"), File(tmp.root, "r2.pdf"), listOf("secret"))
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            kit.redact(textPdf("r3.pdf", "hi"), File(tmp.root, "r4.pdf"), listOf(" "))
-        }
-    }
-
-    @Test
-    fun bookmarksAreAddedAndChecked() {
-        val out = File(tmp.root, "b.pdf")
-        kit.addBookmarks(pdf("b0.pdf", 3), out, "Intro, 1\nEnd, 3")
-        assertTrue(kit.healthCheck(out).contains("Bookmarks: yes"))
-        assertThrows(PdfToolException::class.java) {
-            kotlinx.coroutines.runBlocking {
-                kit.run { kit.addBookmarks(pdf("b1.pdf", 2), File(tmp.root, "b2.pdf"), "X, 9") }
-            }
-        }
-    }
-
-    @Test
-    fun healthCheckSaysScannedOrSearchable() {
-        assertTrue(kit.healthCheck(textPdf("t.pdf", "hello")).contains("searchable"))
-        assertTrue(kit.healthCheck(pdf("blank.pdf", 1)).contains("Pages: 1"))
-    }
-
-    @Test
-    fun blankPdfHasTheRequestedPages() {
-        val out = File(tmp.root, "blank-new.pdf")
-        kit.blankPdf(out, 3)
-        assertTrue(kit.info(out).pages == 3)
-        assertThrows(IllegalArgumentException::class.java) { kit.blankPdf(File(tmp.root, "x.pdf"), 0) }
-    }
-
-    @Test
-    fun addressesInTheTextBecomeLinks() {
-        val plain = File(tmp.root, "links.pdf")
-        com.tom_roush.pdfbox.pdmodel.PDDocument().use { d ->
-            val page = com.tom_roush.pdfbox.pdmodel.PDPage()
-            d.addPage(page)
-            com.tom_roush.pdfbox.pdmodel.PDPageContentStream(d, page).use { cs ->
-                cs.beginText()
-                cs.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 12f)
-                cs.newLineAtOffset(72f, 700f)
-                cs.showText("Read more at https://example.com/page today.")
-                cs.endText()
-            }
-            d.save(plain)
-        }
-        val out = File(tmp.root, "links-out.pdf")
-        assertTrue(kit.linkAddresses(plain, out) >= 1)
     }
 }

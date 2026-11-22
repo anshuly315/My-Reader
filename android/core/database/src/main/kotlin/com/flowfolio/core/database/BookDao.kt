@@ -77,6 +77,13 @@ interface BookDao {
         ratingsCount: Int? = null
     )
 
+    /** A reading place from another device (folder sync): page, both locators and when it was last read there. */
+    @Query(
+        "UPDATE books SET last_page = :page, last_locator = :locator, flow_locator = :flow, last_opened_at = :at " +
+            "WHERE id = :id"
+    )
+    suspend fun setSyncedPlace(id: String, page: Int, locator: String?, flow: String?, at: Long)
+
     /**
      * A page position; an EPUB's locator is cleared, so it opens at this page (measurement scripts set it), and so is a
      * PDF's place in Dynamic Flow, which then opens at this PDF page too (ADR-0045).
