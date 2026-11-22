@@ -53,6 +53,7 @@ import com.flowfolio.core.designsystem.Motion
 import com.flowfolio.core.designsystem.glass
 import com.flowfolio.core.model.Annotation
 import com.flowfolio.core.model.Bookmark
+import com.flowfolio.core.model.Options
 import com.flowfolio.core.model.PageTurn
 import com.flowfolio.core.model.atmosphereInForce
 import com.flowfolio.feature.reader.layout.ReaderLayout
@@ -149,6 +150,7 @@ internal class Overlay(val chrome: ChromeClock, val textPinch: TextPinch) {
 
 /** The open book: page turns, link and centre taps, the controls and the panels they open. */
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun BoxScope.ReadyReader(
     s: ReaderState.Ready,
     images: Map<Int, ImageBitmap>,
@@ -182,9 +184,20 @@ internal fun BoxScope.ReadyReader(
     }
     val mark = chromeMark(s, marks, bookmarks, annotating.all, viewModel::locatorOfPage)
     // A tap on a highlight opens its menu; otherwise links (in Scroll, where the pages lie), the centre, page turns.
+    val taps = LocalTapSettings.current
+    val onTapAction = { action: Int ->
+        val step = if (s.layout == com.flowfolio.feature.reader.layout.ReaderLayout.SPREAD) 2 else 1
+        when (action) {
+            1 -> viewModel.goToPage(s.anchorPage - step)
+            2 -> viewModel.goToPage(s.anchorPage + step)
+            else -> overlay.toggle()
+        }
+    }
     val onTap = { tap: Offset, size: IntSize ->
         val frames = if (s.turn == PageTurn.SCROLL) pageBounds.frames(s, size) else framesFor(size)
-        annotating.tap(tap, size) || overlay.handle(PageFrames.route(tap, size, frames, links), jump)
+        annotating.tap(tap, size) ||
+            customTap(taps, tap, size, onTapAction) ||
+            overlay.handle(PageFrames.route(tap, size, frames, links), jump)
     }
     // Under the pages, which cover it: lays out and draws an EPUB's equations, SVG and tables.
     if (s.reflowable) IslandHost(viewModel)
@@ -461,3 +474,22 @@ private fun BoxScope.EdgeGuards() {
     Spacer(Modifier.align(Alignment.CenterStart).size(EDGE_GUARD_WIDTH, EDGE_GUARD_HEIGHT).systemGestureExclusion())
     Spacer(Modifier.align(Alignment.CenterEnd).size(EDGE_GUARD_WIDTH, EDGE_GUARD_HEIGHT).systemGestureExclusion())
 }
+
+/**
+ * The reader's own choice for a tap in the left, middle or right third (Behaviour → Taps). Returns true when it took
+ * the tap; "as usual" leaves the tap to the page, so nothing changes until a third is set.
+ */
+@Suppress("MagicNumber")
+private fun customTap(options: Map<String, String>, tap: Offset, size: IntSize, perform: (Int) -> Unit): Boolean {
+    val fraction = tap.x / size.width.coerceAtLeast(1)
+    val key = when {
+        fraction < TAP_THIRD -> Options.TAP_LEFT
+        fraction > 1f - TAP_THIRD -> Options.TAP_RIGHT
+        else -> Options.TAP_CENTRE
+    }
+    val action = Options.tapAction(options, key)
+    if (action in 1..3) perform(action)
+    return action != 0
+}
+
+private const val TAP_THIRD = 0.3f

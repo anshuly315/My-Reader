@@ -32,7 +32,10 @@ data class TranslateUiState(
     /** Whether [from] was detected (shown as "Detected"). */
     val detected: Boolean = true,
     val result: String? = null,
-    val status: TranslateStatus = TranslateStatus.DETECTING
+    val status: TranslateStatus = TranslateStatus.DETECTING,
+    /** Translating with the AI chosen in Settings → AI, rather than on the phone with ML Kit. */
+    val ai: Boolean = false,
+    val aiReady: Boolean = false
 )
 
 /**
@@ -43,7 +46,8 @@ data class TranslateUiState(
 class TranslateViewModel @Inject constructor(
     saved: SavedStateHandle,
     private val repository: TranslationRepository,
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val aiService: com.flowfolio.core.ai.AiService
 ) : ViewModel() {
     private val bookId: String? = saved[ReaderViewModel.ARG_BOOK_ID]
     private var at: ReadingPlace = ReadingPlace.Unknown
@@ -101,9 +105,25 @@ class TranslateViewModel @Inject constructor(
                 detected != ENGLISH -> ENGLISH
                 else -> phone.takeIf { it != ENGLISH } ?: ENGLISH
             }
-            _state.update { it.copy(from = detected ?: phone, to = to, detected = detected != null) }
+            val options = settings.settings.first().options
+            _state.update {
+                it.copy(
+                    from = detected ?: phone,
+                    to = to,
+                    detected = detected != null,
+                    ai = options[AI_KEY] == "1",
+                    aiReady = aiService.config.value.ready
+                )
+            }
             run()
         }
+    }
+
+    /** Switches between ML Kit and the AI from Settings → AI, and translates again. */
+    fun setAi(on: Boolean) {
+        _state.update { it.copy(ai = on) }
+        viewModelScope.launch { settings.setOption(AI_KEY, if (on) "1" else "0") }
+        restart()
     }
 
     fun setFrom(language: String) {
@@ -148,12 +168,17 @@ class TranslateViewModel @Inject constructor(
         job = viewModelScope.launch { run() }
     }
 
+    @Suppress("ReturnCount")
     private suspend fun run() {
         val s = _state.value
         val from = s.from ?: return
         if (from == s.to) {
             // Already in that language: ask for the language to translate into.
             _state.update { it.copy(result = null, status = TranslateStatus.CHOOSE) }
+            return
+        }
+        if (s.ai && aiService.config.value.ready) {
+            runWithAi(s)
             return
         }
         val ready = runCatching {
@@ -176,7 +201,25 @@ class TranslateViewModel @Inject constructor(
         }
     }
 
+    /** Translates with the chosen AI, showing the answer as it grows; it is not added to the history. */
+    private suspend fun runWithAi(s: TranslateUiState) {
+        _state.update { it.copy(result = null, status = TranslateStatus.TRANSLATING) }
+        val failed = runCatching {
+            aiService.translate(s.source, s.to).collect { text ->
+                _state.update { it.copy(result = text, status = TranslateStatus.TRANSLATING) }
+            }
+        }.onFailure { android.util.Log.w("FlowFolioTranslate", "AI translate failed", it) }.isFailure
+        _state.update {
+            if (failed || it.result.isNullOrBlank()) {
+                it.copy(status = TranslateStatus.FAILED)
+            } else {
+                it.copy(status = TranslateStatus.DONE)
+            }
+        }
+    }
+
     private companion object {
+        const val AI_KEY = "translate_ai"
         const val ENGLISH = "en"
         const val STOP_MS = 5_000L
     }

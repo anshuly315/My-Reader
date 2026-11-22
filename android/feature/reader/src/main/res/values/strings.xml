@@ -303,4 +303,13 @@
     <string name="reader_tap_halves">Halves</string>
     <string name="reader_tap_edges">Edges only</string>
     <string name="reader_tap_off">Off</string>
+    <string name="reader_tap_left">Tap on the left third</string>
+    <string name="reader_tap_centre">Tap on the middle third</string>
+    <string name="reader_tap_right">Tap on the right third</string>
+    <string name="reader_tap_usual">Usual</string>
+    <string name="reader_tap_back">Back</string>
+    <string name="reader_tap_next">Next</string>
+    <string name="reader_tap_bars">Bars</string>
+    <string name="reader_tap_nothing">Nothing</string>
+    <string name="reader_translate_ai">AI</string>
 </resources>

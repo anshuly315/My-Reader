@@ -9,6 +9,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.core.ai)
     implementation(projects.core.data)
     implementation(projects.core.reflow)
     implementation(projects.core.designsystem)

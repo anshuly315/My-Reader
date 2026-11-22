@@ -63,6 +63,7 @@ internal fun CustomiseGroup(settings: UserSettings, actions: SettingsActions) {
         }
     }
     StartupGroup(settings, actions)
+    WidgetGroup(settings, actions)
     Group(R.string.custom_tabs, 5) {
         val hidden = Options.hiddenTabs(o)
         HIDEABLE_TABS.forEachIndexed { i, (route, label) ->
@@ -122,6 +123,35 @@ internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
                     .map { stringResource(it) },
                 Options.nightPaperIndex(o),
                 { actions.onOption(Options.NIGHT_PAPER, Options.nightPapers[it]) }
+            )
+        }
+    }
+}
+
+/** The home-screen widgets' colours and how see-through their background is. */
+@Composable
+internal fun WidgetGroup(settings: UserSettings, actions: SettingsActions) {
+    val o = settings.options
+    Group(R.string.custom_widgets, 8) {
+        Choice(R.string.custom_widget_theme) {
+            FlowFolioSegmented(
+                listOf(R.string.custom_widget_follow, R.string.custom_widget_light, R.string.custom_widget_dark)
+                    .map { stringResource(it) },
+                Options.widgetTheme(o),
+                { actions.onOption(Options.WIDGET_THEME, it.toString()) }
+            )
+        }
+        Divider()
+        Choice(R.string.custom_widget_background) {
+            FlowFolioSegmented(
+                listOf(
+                    R.string.custom_widget_solid,
+                    R.string.custom_widget_soft,
+                    R.string.custom_widget_glassy,
+                    R.string.custom_widget_clear
+                ).map { stringResource(it) },
+                Options.widgetOpacityIndex(o),
+                { actions.onOption(Options.WIDGET_OPACITY, it.toString()) }
             )
         }
     }

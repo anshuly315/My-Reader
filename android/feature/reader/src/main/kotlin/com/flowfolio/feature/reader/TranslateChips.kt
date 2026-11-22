@@ -46,6 +46,13 @@ internal fun TargetChips(state: TranslateUiState, viewModel: TranslateViewModel)
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (state.aiReady) {
+            FlowFolioChip(
+                stringResource(R.string.reader_translate_ai),
+                selected = state.ai,
+                onClick = { viewModel.setAi(!state.ai) }
+            )
+        }
         shown.forEach { code ->
             FlowFolioChip(languageName(code), selected = code == state.to, onClick = { viewModel.setTo(code) })
         }

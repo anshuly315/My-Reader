@@ -22,6 +22,7 @@ import com.flowfolio.core.data.SettingsRepository
 import com.flowfolio.core.data.flow.FlowNotifications
 import com.flowfolio.core.designsystem.Palette
 import com.flowfolio.core.designsystem.paletteFamilyOf
+import com.flowfolio.core.model.Options
 import com.flowfolio.core.model.ThemePreference
 import com.flowfolio.core.model.UserSettings
 import dagger.hilt.EntryPoint
@@ -52,16 +53,24 @@ internal fun Context.widgetGraph(): WidgetEntryPoint =
  */
 internal class WidgetColors(settings: UserSettings, context: Context) {
     private val family = paletteFamilyOf(context, settings.appStyle, settings.materialSeed)
-    private val mode = settings.theme
+    private val mode = when (Options.widgetTheme(settings.options)) {
+        1 -> ThemePreference.LIGHT
+        2 -> ThemePreference.DARK
+        else -> settings.theme
+    }
+    private val opacity = Options.widgetOpacities[Options.widgetOpacityIndex(settings.options)]
 
-    private fun pick(of: (Palette) -> Color): ColorProvider = when (mode) {
-        ThemePreference.SYSTEM -> ColorProvider(day = of(family.light), night = of(family.dark))
-        ThemePreference.LIGHT -> ColorProvider(of(family.light))
-        ThemePreference.DARK -> ColorProvider(of(family.dark))
+    private fun pick(alpha: Float = 1f, of: (Palette) -> Color): ColorProvider = when (mode) {
+        ThemePreference.SYSTEM ->
+            ColorProvider(day = of(family.light).copy(alpha = alpha), night = of(family.dark).copy(alpha = alpha))
+
+        ThemePreference.LIGHT -> ColorProvider(of(family.light).copy(alpha = alpha))
+
+        ThemePreference.DARK -> ColorProvider(of(family.dark).copy(alpha = alpha))
     }
 
-    val background = pick { it.surface }
-    val panel = pick { it.bg2 }
+    val background = pick(opacity) { it.surface }
+    val panel = pick(opacity) { it.bg2 }
     val ink = pick { it.ink }
     val ink2 = pick { it.ink2 }
     val ink3 = pick { it.ink3 }

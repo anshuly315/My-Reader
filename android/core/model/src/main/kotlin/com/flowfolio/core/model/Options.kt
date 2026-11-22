@@ -24,6 +24,11 @@ object Options {
     const val TAP_ZONE = "tap_zone"
     const val TOOL_ORDER = "tool_order"
     const val TOOL_VIEW = "tool_view"
+    const val WIDGET_THEME = "widget_theme"
+    const val WIDGET_OPACITY = "widget_opacity"
+    const val TAP_LEFT = "tap_left"
+    const val TAP_CENTRE = "tap_centre"
+    const val TAP_RIGHT = "tap_right"
     const val START_TAB = "start_tab"
     const val OPEN_LAST = "open_last"
     const val TAB_ORDER = "tab_order"
@@ -44,6 +49,17 @@ object Options {
 
     /** How the Tools tab lays tools out: 0 icons, 1 compact (usual), 2 list, 3 large. */
     fun toolView(o: Map<String, String>) = (o[TOOL_VIEW]?.toIntOrNull() ?: 1).coerceIn(0, 3)
+
+    /** Widgets' colours: 0 follow the app, 1 always light, 2 always dark. */
+    fun widgetTheme(o: Map<String, String>) = (o[WIDGET_THEME]?.toIntOrNull() ?: 0).coerceIn(0, 2)
+
+    /** Widgets' background, by index into [widgetOpacities]: solid, soft, glassy, clear. */
+    val widgetOpacities = listOf(1f, 0.85f, 0.65f, 0.4f)
+
+    fun widgetOpacityIndex(o: Map<String, String>) = (o[WIDGET_OPACITY]?.toIntOrNull() ?: 0).coerceIn(0, 3)
+
+    /** What a tap in one third of the page does: 0 as usual, 1 back, 2 forward, 3 show or hide the bars, 4 nothing. */
+    fun tapAction(o: Map<String, String>, key: String) = (o[key]?.toIntOrNull() ?: 0).coerceIn(0, 4)
 
     /** The route the app opens on; anything unknown means the library. */
     fun startTab(o: Map<String, String>) = o[START_TAB]?.takeIf { it.isNotBlank() } ?: "library"

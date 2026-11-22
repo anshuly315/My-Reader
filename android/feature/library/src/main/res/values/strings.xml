@@ -891,6 +891,16 @@
     <string name="custom_paper_black">Black</string>
     <string name="custom_paper_night">Night (indigo)</string>
     <string name="custom_paper_rustic">Rustic</string>
+    <string name="custom_widgets">Home-screen widgets</string>
+    <string name="custom_widget_theme">Widget colours</string>
+    <string name="custom_widget_follow">Follow the app</string>
+    <string name="custom_widget_light">Light</string>
+    <string name="custom_widget_dark">Dark</string>
+    <string name="custom_widget_background">Widget background</string>
+    <string name="custom_widget_solid">Solid</string>
+    <string name="custom_widget_soft">Soft</string>
+    <string name="custom_widget_glassy">Glassy</string>
+    <string name="custom_widget_clear">Clear</string>
     <string name="custom_tabs">Tabs shown</string>
     <string name="custom_tab_shelves">Shelves</string>
     <string name="custom_tab_notebook">Notebook</string>

@@ -38,6 +38,10 @@ class AiService @Inject constructor(private val settings: AiSettingsStore, priva
     fun run(task: AiTask, passage: String, context: String? = null, question: String? = null): Flow<String> =
         chat(AiPrompts.build(task, passage, context, question, languageName(config.value.language)))
 
+    /** [passage] translated into the language with BCP-47 [code], whatever the AI settings' own language is. */
+    fun translate(passage: String, code: String): Flow<String> =
+        chat(AiPrompts.build(AiTask.TRANSLATE, passage, null, null, languageName(code)))
+
     /** A follow-up in a conversation that began with [first]. */
     fun followUp(history: List<ChatMessage>, question: String): Flow<String> =
         chat(history + ChatMessage.user(question))

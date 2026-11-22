@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.flowfolio.feature.reader
 
 import androidx.compose.animation.AnimatedContent
@@ -274,6 +276,9 @@ private fun ControlsChoice(settings: UserSettings, viewModel: ReaderSettingsView
             modifier = Modifier.fillMaxWidth()
         )
     }
+    TapAction(R.string.reader_tap_left, Options.TAP_LEFT, settings, viewModel)
+    TapAction(R.string.reader_tap_centre, Options.TAP_CENTRE, settings, viewModel)
+    TapAction(R.string.reader_tap_right, Options.TAP_RIGHT, settings, viewModel)
     StackedOpt(stringResource(R.string.reader_volume_keys)) {
         FlowFolioSegmented(
             listOf(R.string.reader_volume_off, R.string.reader_volume_down, R.string.reader_volume_up)
@@ -536,5 +541,24 @@ private fun BookTextScope(viewModel: ReaderSettingsViewModel) {
                 )
             }
         }
+    }
+}
+
+/** What a tap in one third of the page does (see `customTap`): as usual, back, forward, the bars, or nothing. */
+@Composable
+private fun TapAction(label: Int, key: String, settings: UserSettings, viewModel: ReaderSettingsViewModel) {
+    StackedOpt(stringResource(label)) {
+        FlowFolioSegmented(
+            listOf(
+                R.string.reader_tap_usual,
+                R.string.reader_tap_back,
+                R.string.reader_tap_next,
+                R.string.reader_tap_bars,
+                R.string.reader_tap_nothing
+            ).map { stringResource(it) },
+            Options.tapAction(settings.options, key),
+            { viewModel.setOption(key, it.toString()) },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
