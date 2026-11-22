@@ -121,7 +121,7 @@ internal fun ColumnScope.ReaderSettingsContent(
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp)
+                .padding(top = 2.dp)
         ) {
             // A PDF's Dynamic Flow (ADR-0045) heads the first tab as the mock's "View" row: it changes the whole book.
             val switchView = onFlow
@@ -442,7 +442,7 @@ private val PaperStyle.label: Int
         PaperStyle.RUSTIC -> R.string.reader_paper_rustic
     }
 
-private val SWATCH = 48.dp
+private val SWATCH = 34.dp
 private const val DEFAULT_SLIDER_BRIGHTNESS = 0.75f
 private const val MIN_BRIGHTNESS = 0.05f
 

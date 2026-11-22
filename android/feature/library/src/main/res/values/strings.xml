@@ -889,6 +889,7 @@
     <string name="custom_paper_paper">Paper</string>
     <string name="custom_paper_sepia">Sepia</string>
     <string name="custom_paper_black">Black</string>
+    <string name="custom_paper_night">Night (indigo)</string>
     <string name="custom_paper_rustic">Rustic</string>
     <string name="custom_tabs">Tabs shown</string>
     <string name="custom_tab_shelves">Shelves</string>

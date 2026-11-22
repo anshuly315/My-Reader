@@ -23,8 +23,8 @@ class StripGeometry(val width: Float, val height: Float, val density: Float) {
 
     private companion object {
         const val SIDE_DP = 26f
-        const val TOP_DP = 24f
-        const val BOTTOM_DP = 74f
+        const val TOP_DP = 20f
+        const val BOTTOM_DP = 56f
         const val RIBBON_GAP_DP = 3f
     }
 }

@@ -258,9 +258,9 @@ internal fun OptRow(
     val p = FlowFolio.palette
     Column(modifier.fillMaxWidth()) {
         FlowRow(
-            Modifier.fillMaxWidth().heightIn(min = OPT_HEIGHT).padding(vertical = 8.dp),
+            Modifier.fillMaxWidth().heightIn(min = OPT_HEIGHT).padding(vertical = 3.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.padding(end = 12.dp)) {
@@ -294,7 +294,7 @@ internal fun SwitchRow(
 internal fun StackedOpt(label: String, divider: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val p = FlowFolio.palette
     Column(Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label, style = FlowFolioType.body.copy(fontSize = 15.sp, color = p.ink))
             content()
         }
@@ -302,4 +302,4 @@ internal fun StackedOpt(label: String, divider: Boolean = true, content: @Compos
     }
 }
 
-private val OPT_HEIGHT = 56.dp
+private val OPT_HEIGHT = 44.dp

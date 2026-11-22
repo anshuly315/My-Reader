@@ -73,7 +73,7 @@ fun RiffleDock(
     remaining: () -> Float = { 1f }
 ) {
     val palette = FlowFolio.palette
-    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 10.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 6.dp)) {
         Box {
             RiffleHeader(state, events)
             events?.let { GoToPageField(state, it) }
@@ -271,7 +271,7 @@ private class DrawTiming {
     }
 }
 
-private const val STRIP_HEIGHT = 124
+private const val STRIP_HEIGHT = 92
 private const val PERCENT = 100
 
 /**

@@ -118,7 +118,7 @@ internal fun StartupGroup(settings: UserSettings, actions: SettingsActions) {
         Divider()
         Choice(R.string.custom_night_paper) {
             FlowFolioSegmented(
-                listOf(R.string.custom_paper_auto, R.string.custom_paper_black, R.string.custom_paper_rustic)
+                listOf(R.string.custom_paper_black, R.string.custom_paper_night, R.string.custom_paper_rustic)
                     .map { stringResource(it) },
                 Options.nightPaperIndex(o),
                 { actions.onOption(Options.NIGHT_PAPER, Options.nightPapers[it]) }

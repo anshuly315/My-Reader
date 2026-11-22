@@ -5,9 +5,9 @@ package com.flowfolio.core.model
 /** How strongly the glass bars and panels blur what is behind them. */
 enum class GlassMode(val blurDp: Int, val tint: Float) {
     OFF(0, 1f),
-    SOFT(10, 0.9f),
-    FROSTED(18, 0.8f),
-    CRYSTAL(30, 0.55f)
+    SOFT(12, 0.88f),
+    FROSTED(24, 0.72f),
+    CRYSTAL(40, 0.42f)
 }
 
 /** The Customise page's choices, read from [UserSettings.options] with a default for anything unset. */
@@ -30,9 +30,9 @@ object Options {
     const val DAY_PAPER = "day_paper"
     const val NIGHT_PAPER = "night_paper"
 
-    /** Paper for Auto in a light app, then in a dark one (names of [PaperStyle]). */
+    /** Paper for Auto in a light app, then in a dark one (names of [PaperStyle]); a dark app starts on Black. */
     val dayPapers = listOf("AUTO", "PAPER", "SEPIA")
-    val nightPapers = listOf("AUTO", "BLACK", "RUSTIC")
+    val nightPapers = listOf("BLACK", "NIGHT", "RUSTIC")
 
     fun dayPaperIndex(o: Map<String, String>) = dayPapers.indexOf(o[DAY_PAPER]).coerceAtLeast(0)
 

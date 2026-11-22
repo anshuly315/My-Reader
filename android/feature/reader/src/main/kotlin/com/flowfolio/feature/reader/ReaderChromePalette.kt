@@ -14,11 +14,15 @@ import com.flowfolio.core.designsystem.GlassStyle
  * Call inside [ReaderChromePalette], whose surface it takes.
  */
 @Composable
-internal fun readerChromeGlass(): GlassStyle = GlassStyle(
-    tint = com.flowfolio.core.designsystem.FlowFolio.palette.surface.copy(alpha = CHROME_TINT),
-    edge = Color.White.copy(alpha = CHROME_EDGE),
-    blur = CHROME_BLUR
-)
+internal fun readerChromeGlass(): GlassStyle {
+    // The reader's chrome follows the reader's Glass mode (Customise): its blur and how see-through the tint is.
+    val app = com.flowfolio.core.designsystem.LocalGlassStyle.current
+    return GlassStyle(
+        tint = com.flowfolio.core.designsystem.FlowFolio.palette.surface.copy(alpha = app.tint?.alpha ?: CHROME_TINT),
+        edge = Color.White.copy(alpha = CHROME_EDGE),
+        blur = app.blur ?: CHROME_BLUR
+    )
+}
 
 /**
  * The dark palette for the reader's chrome (ADR-0056), its third ink lifted toward the second: the dark palette's
