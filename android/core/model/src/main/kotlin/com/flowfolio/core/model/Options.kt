@@ -22,6 +22,8 @@ object Options {
     const val COLUMNS = "columns"
     const val VOLUME_KEYS = "volume_keys"
     const val TAP_ZONE = "tap_zone"
+    const val TOOL_ORDER = "tool_order"
+    const val TOOL_VIEW = "tool_view"
     const val START_TAB = "start_tab"
     const val OPEN_LAST = "open_last"
     const val TAB_ORDER = "tab_order"
@@ -35,6 +37,13 @@ object Options {
     fun dayPaperIndex(o: Map<String, String>) = dayPapers.indexOf(o[DAY_PAPER]).coerceAtLeast(0)
 
     fun nightPaperIndex(o: Map<String, String>) = nightPapers.indexOf(o[NIGHT_PAPER]).coerceAtLeast(0)
+
+    /** Tool names in the order the reader arranged them; tools it does not mention follow in their usual order. */
+    fun toolOrder(o: Map<String, String>): List<String> =
+        o[TOOL_ORDER]?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+
+    /** How the Tools tab lays tools out: 0 icons, 1 compact (usual), 2 list, 3 large. */
+    fun toolView(o: Map<String, String>) = (o[TOOL_VIEW]?.toIntOrNull() ?: 1).coerceIn(0, 3)
 
     /** The route the app opens on; anything unknown means the library. */
     fun startTab(o: Map<String, String>) = o[START_TAB]?.takeIf { it.isNotBlank() } ?: "library"

@@ -36,7 +36,7 @@
     <string name="tool_numbers">Page numbers</string>
     <string name="tool_numbers_sub">Add “Page N of M” to every page.</string>
     <string name="tool_compress">Compress</string>
-    <string name="tool_compress_sub">Make the pictures inside smaller.</string>
+    <string name="tool_compress_sub">Shrink the whole PDF to a size you choose.</string>
     <string name="tool_protect">Add password</string>
     <string name="tool_protect_sub">Encrypt a PDF with AES-256.</string>
     <string name="tool_unlock">Remove password</string>
@@ -60,6 +60,7 @@
     <string name="opt_opacity">Opacity</string>
     <string name="opt_size">Size</string>
     <string name="opt_start">First page number</string>
+    <string name="opt_target_size">Target size (MB)</string>
     <string name="opt_quality">Picture quality</string>
     <string name="opt_max_width">Largest picture width (px)</string>
     <string name="opt_password">Password</string>

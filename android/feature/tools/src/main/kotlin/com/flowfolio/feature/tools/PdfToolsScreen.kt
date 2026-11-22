@@ -69,7 +69,7 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
     BackHandler(enabled = managing && tool == null) { managing = false }
     val insets = WindowInsets.safeDrawing.asPaddingValues()
     val chrome = LocalChromePadding.current
-    Box(Modifier.fillMaxSize().chromeStart()) {
+    Box(Modifier.fillMaxSize().chromeStart().pinchToResize(prefs.view, prefs.onView)) {
         Column(
             Modifier.fillMaxSize().padding(top = insets.calculateTopPadding()).padding(horizontal = 18.dp)
         ) {
@@ -83,7 +83,12 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                 ManageTools(prefs) { managing = false }
             } else if (tool == null) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(132.dp),
+                    columns = when (prefs.view) {
+                        0 -> GridCells.Adaptive(96.dp)
+                        2 -> GridCells.Fixed(1)
+                        3 -> GridCells.Adaptive(170.dp)
+                        else -> GridCells.Adaptive(132.dp)
+                    },
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -95,10 +100,8 @@ fun PdfToolsScreen(onOpenAi: () -> Unit, onOpenDiscover: () -> Unit, viewModel: 
                     item(span = { GridItemSpan(maxLineSpan) }) { DiscoverCard(onOpenDiscover) }
                     item(span = { GridItemSpan(maxLineSpan) }) { ChooseToolsCard { managing = true } }
                     items(
-                        PdfTool.entries.filter {
-                            it.name !in prefs.hidden
-                        }
-                    ) { t -> ToolCard(t) { viewModel.open(t) } }
+                        prefs.ordered.filter { it.name !in prefs.hidden }
+                    ) { t -> ToolCard(t, prefs.view) { viewModel.open(t) } }
                 }
             } else {
                 ToolDetail(tool, state, viewModel, Modifier.weight(1f))
@@ -162,21 +165,53 @@ private fun DiscoverCard(onClick: () -> Unit) {
     }
 }
 
+/** One tool for the chosen layout: 0 icon over name, 1 compact, 2 list with help text, 3 large. */
 @Composable
-private fun ToolCard(tool: PdfTool, onClick: () -> Unit) {
+private fun ToolCard(tool: PdfTool, view: Int, onClick: () -> Unit) {
     val p = FlowFolio.palette
+    val icon = when (view) {
+        0 -> 24.dp
+        3 -> 34.dp
+        else -> 20.dp
+    }
     FlowFolioCard(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
-        padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 9.dp)
+        padding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 10.dp,
+            vertical = if (view >= 2) 14.dp else 9.dp
+        )
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FlowFolioGlyph(tool.glyph, null, color = p.accent, size = 20.dp)
-            Spacer(Modifier.width(8.dp))
+        val title = @Composable {
             Text(
                 stringResource(tool.title),
                 style = FlowFolioType.rowLabel.copy(color = p.ink),
                 maxLines = 2
             )
+        }
+        if (view == 0 || view == 3) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                FlowFolioGlyph(tool.glyph, null, color = p.accent, size = icon)
+                Spacer(Modifier.height(6.dp))
+                title()
+                if (view == 3) {
+                    Text(
+                        stringResource(tool.sub),
+                        style = FlowFolioType.rowDetail.copy(color = p.ink2),
+                        maxLines = 2
+                    )
+                }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowFolioGlyph(tool.glyph, null, color = p.accent, size = icon)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    title()
+                    if (view == 2) {
+                        Text(stringResource(tool.sub), style = FlowFolioType.rowDetail.copy(color = p.ink2))
+                    }
+                }
+            }
         }
     }
 }
@@ -368,73 +403,9 @@ private fun Options(tool: PdfTool, o: ToolOptions, vm: ToolsViewModel) {
             }
         }
 
-        PdfTool.STAMP_IMAGE -> {
-            ToolSlider(
-                stringResource(R.string.opt_opacity),
-                o.opacity,
-                { v -> vm.options { it.copy(opacity = v) } },
-                "${(o.opacity * 100).toInt()}%",
-                0.05f..1f
-            )
-            ToolField(stringResource(R.string.opt_stamp_width), o.size, { v ->
-                vm.options { it.copy(size = v) }
-            }, number = true)
-        }
-
-        PdfTool.WATERMARK -> {
-            ToolField(stringResource(R.string.opt_text), o.text, { v -> vm.options { it.copy(text = v) } })
-            ToolSlider(
-                stringResource(R.string.opt_opacity),
-                o.opacity,
-                { v ->
-                    vm.options { it.copy(opacity = v) }
-                },
-                "${(o.opacity * 100).toInt()}%",
-                0.05f..1f
-            )
-            ToolField(stringResource(R.string.opt_size), o.size, { v ->
-                vm.options { it.copy(size = v) }
-            }, number = true)
-        }
-
-        PdfTool.SPLIT_SIZE -> ToolField(stringResource(R.string.opt_size_mb), o.every, { v ->
-            vm.options { it.copy(every = v) }
+        PdfTool.COMPRESS -> ToolField(stringResource(R.string.opt_target_size), o.targetMb, { v ->
+            vm.options { it.copy(targetMb = v) }
         }, number = true)
-
-        PdfTool.HEADER, PdfTool.FOOTER -> ToolField(stringResource(R.string.opt_header_text), o.text, { v ->
-            vm.options { it.copy(text = v) }
-        })
-
-        PdfTool.BOOKMARKS -> ToolField(stringResource(R.string.opt_bookmarks), o.text, { v ->
-            vm.options { it.copy(text = v) }
-        })
-
-        PdfTool.REDACT -> ToolField(stringResource(R.string.opt_redact_words), o.text, { v ->
-            vm.options { it.copy(text = v) }
-        })
-
-        PdfTool.BLANK_PDF -> ToolField(stringResource(R.string.opt_blank_pages), o.every, { v ->
-            vm.options { it.copy(every = v) }
-        }, number = true)
-
-        PdfTool.NUMBERS -> ToolField(stringResource(R.string.opt_start), o.start, { v ->
-            vm.options { it.copy(start = v) }
-        }, number = true)
-
-        PdfTool.COMPRESS -> {
-            ToolSlider(
-                stringResource(R.string.opt_quality),
-                o.quality,
-                { v ->
-                    vm.options { it.copy(quality = v) }
-                },
-                "${(o.quality * 100).toInt()}%",
-                0.1f..0.95f
-            )
-            ToolField(stringResource(R.string.opt_max_width), o.maxWidth, { v ->
-                vm.options { it.copy(maxWidth = v) }
-            }, number = true)
-        }
 
         PdfTool.PROTECT -> {
             ToolField(stringResource(R.string.opt_password), o.password, { v ->

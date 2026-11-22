@@ -52,6 +52,9 @@ data class PdfInfo(
     val encrypted: Boolean
 )
 
+/** What [PdfToolkit.compressToSize] made: its size, whether the target was met, and whether pages became pictures. */
+data class SizeResult(val bytes: Long, val reached: Boolean, val flattened: Boolean)
+
 /**
  * The PDF tools, after Stirling-PDF's, running on the phone: nothing is uploaded. Each function reads files and writes a
  * new one; the input is never changed. They block, so [run] moves them off the main thread and turns the engine's
@@ -364,6 +367,45 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
             save(d, output)
         }
         return input.length() - output.length()
+    }
+
+    /**
+     * Makes the whole PDF no bigger than [targetBytes] if it can. First the pictures inside are recompressed, a little
+     * more each round; if even the smallest setting is still too big, every page is redrawn as a picture (text can no
+     * longer be selected) at lower and lower sharpness. The smallest file made is kept in [output] either way.
+     */
+    @Suppress("ReturnCount")
+    fun compressToSize(input: File, output: File, targetBytes: Long): SizeResult {
+        if (input.length() <= targetBytes) {
+            input.copyTo(output, overwrite = true)
+            return SizeResult(input.length(), reached = true, flattened = false)
+        }
+        val trial = File(output.parentFile, "${output.name}.trial")
+        var best = Long.MAX_VALUE
+        var flattened = false
+
+        fun keep(isFlat: Boolean): Boolean {
+            val size = trial.length()
+            if (size < best) {
+                trial.copyTo(output, overwrite = true)
+                best = size
+                flattened = isFlat
+            }
+            return size <= targetBytes
+        }
+        try {
+            for ((quality, width) in IMAGE_STEPS) {
+                compress(input, trial, quality, width)
+                if (keep(false)) return SizeResult(best, true, false)
+            }
+            for ((dpi, quality) in PAGE_STEPS) {
+                rasterize(input, trial, dpi, quality = quality) { _, _ -> }
+                if (keep(true)) return SizeResult(best, true, true)
+            }
+        } finally {
+            trial.delete()
+        }
+        return SizeResult(best, reached = false, flattened = flattened)
     }
 
     /** Drops pages with no text and no pictures (scanner separators, accidental blanks). Returns how many were removed. */
@@ -967,6 +1009,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         output: File,
         dpi: Int,
         colorFilter: android.graphics.ColorMatrix? = null,
+        quality: Float = RASTER_QUALITY,
         draw: (Bitmap, Int) -> Unit
     ) {
         ParcelFileDescriptor.open(input, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
@@ -994,7 +1037,7 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
                             draw(shown, n + 1)
                             val pdfPage = PDPage(PDRectangle(page.width.toFloat(), page.height.toFloat()))
                             d.addPage(pdfPage)
-                            val image = JPEGFactory.createFromImage(d, shown, RASTER_QUALITY)
+                            val image = JPEGFactory.createFromImage(d, shown, quality)
                             PDPageContentStream(d, pdfPage).use {
                                 it.drawImage(image, 0f, 0f, page.width.toFloat(), page.height.toFloat())
                             }
@@ -1032,6 +1075,28 @@ class PdfToolkit @Inject constructor(@ApplicationContext private val context: Co
         const val HEADER_MARGIN = 24f
         const val RASTER_DPI = 150
         const val RASTER_QUALITY = 0.85f
+
+        /** Picture quality (percent) and widest side, from gentle to harsh. */
+        val IMAGE_STEPS = listOf(
+            90 to 2400,
+            80 to 1800,
+            70 to 1400,
+            60 to 1100,
+            50 to 900,
+            40 to 700,
+            30 to 550,
+            20 to 400
+        )
+
+        /** Resolution and quality for pages redrawn as pictures, from sharp to coarse. */
+        val PAGE_STEPS = listOf(
+            150 to 0.7f,
+            120 to 0.6f,
+            100 to 0.5f,
+            80 to 0.45f,
+            65 to 0.4f,
+            50 to 0.35f
+        )
         const val JPEG_QUALITY = 92
     }
 }

@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.flowfolio.core.pdftools.PageRanges
 import com.flowfolio.core.pdftools.PdfToolException
 import com.flowfolio.core.pdftools.PdfToolkit
+import com.flowfolio.core.pdftools.SizeResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -52,12 +53,7 @@ class ToolsViewModel @Inject constructor(
     private val work get() = File(context.cacheDir, "pdf-tools").apply { mkdirs() }
 
     fun open(tool: PdfTool) {
-        val text = when (tool) {
-            PdfTool.HEADER, PdfTool.FOOTER -> "{n} / {total}"
-            PdfTool.REDACT, PdfTool.BOOKMARKS -> ""
-            else -> ToolOptions().text
-        }
-        _state.value = ToolsState(tool = tool, options = ToolOptions(text = text))
+        _state.value = ToolsState(tool = tool, options = ToolOptions())
     }
 
     fun close() {
@@ -113,7 +109,7 @@ class ToolsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val results = kit.run { execute(tool, s.files.map { it.file }, s.options) }
-                _state.update { it.copy(running = false, results = results) }
+                _state.update { it.copy(running = false, results = results, message = note.also { note = null }) }
             } catch (e: PdfToolException) {
                 _state.update { it.copy(running = false, message = e.message, failed = true) }
             }
@@ -148,47 +144,13 @@ class ToolsViewModel @Inject constructor(
                 }
             )
 
-            PdfTool.STAMP_IMAGE -> {
-                val pdfFile = input.firstOrNull { it.extension.equals("pdf", true) }
-                    ?: throw PdfToolException("Choose a PDF and a picture.")
-                val picture = input.firstOrNull { !it.extension.equals("pdf", true) }
-                    ?: throw PdfToolException("Choose a PDF and a picture.")
-                listOf(
-                    File(out, "stamped.pdf").also {
-                        kit.stampImage(pdfFile, picture, it, o.opacity, o.size.toIntOrNull() ?: 30)
-                    }
-                )
-            }
-
-            PdfTool.LINK_ADDRESSES -> {
-                val target = pdf("linked")
-                val n = kit.linkAddresses(first, target)
-                if (n == 0) throw PdfToolException("No web addresses were found in this PDF's text.")
-                listOf(target)
-            }
-
-            PdfTool.WATERMARK -> listOf(
-                pdf("watermarked").also {
-                    kit.watermark(
-                        first,
-                        it,
-                        o.text,
-                        o.opacity,
-                        o.size.toFloatOrNull() ?: throw bad("Size must be a number.")
-                    )
-                }
-            )
-
-            PdfTool.NUMBERS -> listOf(pdf("numbered").also { kit.pageNumbers(first, it, o.start.toIntOrNull() ?: 1) })
-
             PdfTool.COMPRESS -> {
+                val target =
+                    (o.targetMb.replace(',', '.').toDoubleOrNull() ?: throw bad("Target size must be a number."))
+                        .takeIf { it >= 0.05 } ?: throw bad("Target size must be at least 0.05 MB.")
                 val f = pdf("compressed")
-                kit.compress(
-                    first,
-                    f,
-                    (o.quality * 100).toInt(),
-                    o.maxWidth.toIntOrNull() ?: throw bad("Width must be a number.")
-                )
+                val r = kit.compressToSize(first, f, (target * MEGABYTE).toLong())
+                note = compressNote(first.length(), r, target)
                 listOf(f)
             }
 
@@ -220,57 +182,20 @@ class ToolsViewModel @Inject constructor(
 
             PdfTool.BLANK_PAGES -> listOf(pdf("no-blanks").also { kit.removeBlankPages(first, it) })
 
-            PdfTool.SANITIZE -> listOf(pdf("clean").also { kit.sanitize(first, it) })
-
-            PdfTool.REPAIR -> listOf(pdf("repaired").also { kit.repair(first, it) })
-
             PdfTool.N_UP -> listOf(pdf("n-up").also { kit.nUp(first, it, o.perSheet) })
-
-            PdfTool.SINGLE_PAGE -> listOf(pdf("single").also { kit.singlePage(first, it) })
-
-            PdfTool.EXTRACT_IMAGES -> kit.extractImages(first, out)
 
             PdfTool.SCALE_A4 -> listOf(pdf("a4").also { kit.scaleToA4(first, it) })
 
             PdfTool.BOOKLET -> listOf(pdf("booklet").also { kit.booklet(first, it) })
 
-            PdfTool.SPLIT_SIZE -> kit.splitBySize(first, out, o.every.toIntOrNull() ?: 0)
-
             PdfTool.SPLIT_BOOKMARKS -> kit.splitByBookmarks(first, out)
 
-            PdfTool.REMOVE_IMAGES -> listOf(pdf("no-images").also { kit.removeImages(first, it) })
-
             PdfTool.REMOVE_ANNOTATIONS -> listOf(pdf("no-notes").also { kit.removeAnnotations(first, it) })
-
-            PdfTool.EXTRACT_ATTACHMENTS -> kit.extractAttachments(first, out)
-
-            PdfTool.OVERLAY -> {
-                if (input.size != 2) throw bad("Choose exactly two PDFs: the page first, then the one to lay over it.")
-                listOf(pdf("overlay").also { kit.overlay(first, input[1], it) })
-            }
-
-            PdfTool.HEADER -> listOf(pdf("header").also { kit.headerFooter(first, it, o.text, top = true) })
-
-            PdfTool.FOOTER -> listOf(pdf("footer").also { kit.headerFooter(first, it, o.text, top = false) })
 
             PdfTool.COMPARE -> {
                 if (input.size != 2) throw bad("Choose exactly two PDFs to compare.")
                 listOf(File(out, "comparison.txt").also { it.writeText(kit.compare(first, input[1])) })
             }
-
-            PdfTool.REDACT -> listOf(pdf("redacted").also { kit.redact(first, it, o.text.split(',')) })
-
-            PdfTool.GRAYSCALE -> listOf(pdf("grey").also { kit.grayscale(first, it) })
-
-            PdfTool.INVERT -> listOf(pdf("inverted").also { kit.invert(first, it) })
-
-            PdfTool.BOOKMARKS -> listOf(pdf("bookmarked").also { kit.addBookmarks(first, it, o.text) })
-
-            PdfTool.BLANK_PDF -> listOf(File(out, "blank.pdf").also { kit.blankPdf(it, o.every.toIntOrNull() ?: 1) })
-
-            PdfTool.HEALTH -> listOf(File(out, "health-check.txt").also { it.writeText(kit.healthCheck(first)) })
-
-            PdfTool.IMAGES_TO_PDF -> listOf(File(out, "pictures.pdf").also { kit.imagesToPdf(input, it) })
 
             PdfTool.PDF_TO_IMAGES -> kit.pdfToImages(
                 first,
@@ -279,9 +204,23 @@ class ToolsViewModel @Inject constructor(
                 (o.dpi.toIntOrNull() ?: 150).coerceIn(36, 600),
                 o.jpeg
             )
-
-            PdfTool.TEXT -> listOf(File(out, "$stem.txt").also { it.writeText(kit.extractText(first)) })
         }
+    }
+
+    private var note: String? = null
+
+    private fun mb(bytes: Long) = String.format(java.util.Locale.US, "%.2f MB", bytes / MEGABYTE)
+
+    private fun compressNote(before: Long, r: SizeResult, target: Double): String = when {
+        before <= target * MEGABYTE -> "This PDF is already ${mb(before)}, under the target. Nothing was changed."
+
+        r.reached && r.flattened -> "Made ${mb(
+            r.bytes
+        )} from ${mb(before)}. Pages were turned into pictures to fit, so text can't be selected."
+
+        r.reached -> "Made ${mb(r.bytes)} from ${mb(before)}."
+
+        else -> "Could not reach the target. The smallest this PDF gets is ${mb(r.bytes)} (from ${mb(before)})."
     }
 
     private fun bad(message: String) = PdfToolException(message)
@@ -331,3 +270,5 @@ class ToolsViewModel @Inject constructor(
         else -> "text/plain"
     }
 }
+
+private const val MEGABYTE = 1024.0 * 1024.0

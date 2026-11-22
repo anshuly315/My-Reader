@@ -111,9 +111,14 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
         LocalCoverScale provides Options.coverSizes[Options.coverSizeIndex(options)],
         LocalHiddenTabs provides Options.hiddenTabs(options),
         LocalTabOrder provides Options.tabOrder(options),
-        LocalToolPrefs provides ToolPrefs(Options.hiddenTools(options)) {
-            appViewModel.setOption(Options.HIDDEN_TOOLS, it.joinToString(","))
-        },
+        LocalToolPrefs provides ToolPrefs(
+            hidden = Options.hiddenTools(options),
+            onChange = { appViewModel.setOption(Options.HIDDEN_TOOLS, it.joinToString(",")) },
+            order = Options.toolOrder(options),
+            onOrder = { appViewModel.setOption(Options.TOOL_ORDER, it.joinToString(",")) },
+            view = Options.toolView(options),
+            onView = { appViewModel.setOption(Options.TOOL_VIEW, it.toString()) }
+        ),
         LocalGlassStyle provides GlassStyle(
             tint = palette.surface.copy(alpha = glass.tint),
             blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp

@@ -1,5 +1,6 @@
 package com.flowfolio.feature.tools
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,7 @@ internal fun ManageTools(prefs: ToolPrefs, onDone: () -> Unit) {
                 FlowFolioButton(stringResource(R.string.tools_done), onDone, style = ButtonStyle.PRIMARY)
             }
         }
-        items(PdfTool.entries.toList(), key = { it.name }) { tool ->
+        items(prefs.ordered, key = { it.name }) { tool ->
             val shown = tool.name !in prefs.hidden
             FlowFolioCard(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
                 Row(
@@ -58,9 +59,31 @@ internal fun ManageTools(prefs: ToolPrefs, onDone: () -> Unit) {
                         style = FlowFolioType.rowLabel.copy(color = p.ink),
                         modifier = Modifier.weight(1f).padding(horizontal = 14.dp)
                     )
+                    MoveButton("\u2191", tool.name, -1, prefs)
+                    MoveButton("\u2193", tool.name, 1, prefs)
                     FlowFolioToggle(checked = shown, onCheckedChange = null)
                 }
             }
         }
     }
+}
+
+/** Moves [name] one place up (-1) or down (1) in the reader's own order of the tools. */
+@Composable
+private fun MoveButton(arrow: String, name: String, by: Int, prefs: ToolPrefs) {
+    Text(
+        arrow,
+        style = FlowFolioType.rowLabel.copy(color = FlowFolio.palette.accent),
+        modifier = Modifier
+            .clickable {
+                val names = prefs.ordered.map { it.name }.toMutableList()
+                val at = names.indexOf(name)
+                val to = at + by
+                if (to in names.indices) {
+                    names.add(to, names.removeAt(at))
+                    prefs.onOrder(names)
+                }
+            }
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    )
 }
