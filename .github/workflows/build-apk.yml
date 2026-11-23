@@ -45,25 +45,33 @@ jobs:
         run: |
           if [ -n "$KEYSTORE" ]; then echo "$KEYSTORE" | base64 -d > app/reader-dev.jks; fi
       - name: Build the APK
-        run: ./gradlew :app:assembleEssentialDebug -Pflowfolio.abis=arm64-v8a --no-daemon
+        run: ./gradlew :app:assembleEssentialSideload -Pflowfolio.abis=arm64-v8a --no-daemon
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: reader-debug-apk
+          name: reader-apk
           path: android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
+      # Reads crash reports back to the line: the shrunk build renames code, and this file undoes it.
+      - name: Upload the R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: android/app/build/**/essentialSideload/**/mapping.txt
+          if-no-files-found: warn
+          retention-days: 90
       # A release serves the APK itself, so it downloads straight to the phone with no unzipping.
       - name: Publish the APK to the "latest" release
         env:
           GH_TOKEN: ${{ github.token }}
         working-directory: .
         run: |
-          apk=$(ls android/app/build/outputs/apk/essential/debug/*.apk | head -n 1)
+          apk=$(ls android/app/build/outputs/apk/essential/sideload/*.apk | head -n 1)
           cp "$apk" my-reader.apk
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest my-reader.apk --prerelease --title "Latest build" \
-            --notes "Debug APK from commit ${GITHUB_SHA::7}. Download my-reader.apk and install it."
+            --notes "Optimised APK from commit ${GITHUB_SHA::7}. Download my-reader.apk and install it."
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -13,3 +13,17 @@
 -keep class * extends androidx.work.ListenableWorker { public <init>(android.content.Context, androidx.work.WorkerParameters); }
 -keep class androidx.glance.appwidget.** extends androidx.glance.appwidget.GlanceAppWidgetReceiver { *; }
 -keep class com.flowfolio.widget.** { *; }
+
+# ---- Added for My Reader (2026-11-23) ----
+# On-device AI (LiteRT-LM): its native library calls back into these classes by name.
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+# PDF tools (PDFBox for Android): fonts and filters are found by name at run time; optional JPEG 2000 support is absent.
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.fontbox.** { *; }
+-dontwarn com.tom_roush.**
+-dontwarn com.gemalto.jp2.**
+-dontwarn org.bouncycastle.**
+# Crash reports read back to the line (CI keeps mapping.txt beside each build).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

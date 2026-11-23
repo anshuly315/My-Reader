@@ -2,12 +2,19 @@
 
 package com.flowfolio.core.model
 
-/** How strongly the glass bars and panels blur what is behind them. */
-enum class GlassMode(val blurDp: Int, val tint: Float) {
-    OFF(0, 1f),
-    SOFT(12, 0.88f),
-    FROSTED(24, 0.72f),
-    CRYSTAL(40, 0.42f)
+/**
+ * How glass bars and sheets look. Each mode differs in several ways at once, so the difference shows even over a
+ * plain light screen: [tint] is how much of the surface colour covers what is behind, [blurDp] how much that is
+ * smudged, [grain] the frosted noise, [shine] a light sheen down from the top edge and [rim] how bright the edge is.
+ *
+ * Off is a solid bar; Soft is nearly solid with a gentle blur; Frosted is milky and grainy, with what is behind
+ * blurred to colour only; Crystal is clear, so what scrolls behind stays readable, with a bright rim and sheen.
+ */
+enum class GlassMode(val blurDp: Int, val tint: Float, val grain: Float, val shine: Float, val rim: Float) {
+    OFF(0, 1f, 0f, 0f, 0.75f),
+    SOFT(10, 0.9f, 0.02f, 0.05f, 0.7f),
+    FROSTED(30, 0.62f, 0.14f, 0.1f, 0.85f),
+    CRYSTAL(3, 0.22f, 0f, 0.32f, 1f)
 }
 
 /** The Customise page's choices, read from [UserSettings.options] with a default for anything unset. */

@@ -16,7 +16,6 @@ import com.flowfolio.core.conversion.Converter
 import com.flowfolio.core.conversion.SidecarBuilder
 import com.flowfolio.core.conversion.epub.SourceInfo
 import com.flowfolio.core.data.R
-import com.flowfolio.core.data.ocr.OcrPack
 import com.flowfolio.core.model.FlowFailure
 import com.flowfolio.core.model.FlowPause
 import com.flowfolio.core.pdf.PdfException
@@ -187,13 +186,6 @@ class FlowService : Service() {
         }
     }
 
-    /** Scanned pages are read when the scanned-books pack is installed (ADR-0054); loaded once per service. */
-    private val ocr by lazy {
-        runCatching {
-            OcrPack.readerIn(filesDir, Runtime.getRuntime().availableProcessors().coerceIn(2, OCR_THREADS))
-        }.onFailure { Log.w(TAG, "OCR pack could not load", it) }.getOrNull()
-    }
-
     private fun convert(job: Job, ahead: Boolean) {
         val fd = open(job) ?: throw FileNotFoundException("no file for ${job.bookId}")
         files.dir(job.bookId).mkdirs()
@@ -201,7 +193,7 @@ class FlowService : Service() {
         val cache = FileOcrCache(files.ocrCache(job.bookId), SidecarBuilder.ENGINE_VERSION)
         val result = fd.use { pfd ->
             PdfiumConversionSource.open(pfd).use { pdf ->
-                Converter(Converter.Settings(ocr = ocr, ocrCache = cache)).convertProgressively(
+                Converter(Converter.Settings(ocr = null, ocrCache = cache)).convertProgressively(
                     pdf,
                     SourceInfo(job.title.ifBlank { job.bookId }, job.bookId, pdf.pageCount, pdf.metadata("Title")),
                     Instant.now().truncatedTo(ChronoUnit.SECONDS).toString(),

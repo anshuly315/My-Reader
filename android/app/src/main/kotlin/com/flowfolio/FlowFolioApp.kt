@@ -121,7 +121,11 @@ fun FlowFolioApp(appViewModel: AppViewModel) {
         ),
         LocalGlassStyle provides GlassStyle(
             tint = palette.surface.copy(alpha = glass.tint),
-            blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp
+            edge = palette.edge.copy(alpha = glass.rim),
+            blur = glass.blurDp.dp.takeIf { glass != GlassMode.OFF } ?: 1.dp,
+            grain = glass.grain,
+            shine = glass.shine,
+            see = glass != GlassMode.OFF
         )
     ) {
         AppShell(entry?.destination?.route, onSelect = nav::switchTo) {

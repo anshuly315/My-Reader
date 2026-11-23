@@ -2,7 +2,6 @@ package com.flowfolio.core.data
 
 import android.content.Context
 import android.util.Log
-import com.flowfolio.core.data.ocr.OcrPack
 import com.flowfolio.core.voice.PackFetch
 import com.flowfolio.core.voice.PackFile
 import java.io.File
@@ -25,7 +24,6 @@ object BundledPacks {
 
     /** Each group's files and the folder they go to. */
     fun groups(context: Context): List<Triple<String, List<PackFile>, File>> = listOf(
-        Triple(OCR, OcrPack.FILES, OcrPack.dirIn(context.filesDir)),
         Triple(
             DICTIONARY,
             listOf(

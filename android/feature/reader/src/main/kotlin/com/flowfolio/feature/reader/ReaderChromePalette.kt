@@ -18,9 +18,15 @@ internal fun readerChromeGlass(): GlassStyle {
     // The reader's chrome follows the reader's Glass mode (Customise): its blur and how see-through the tint is.
     val app = com.flowfolio.core.designsystem.LocalGlassStyle.current
     return GlassStyle(
-        tint = com.flowfolio.core.designsystem.FlowFolio.palette.surface.copy(alpha = app.tint?.alpha ?: CHROME_TINT),
+        // Never clearer than 55%: the bars sit over the book's own text, which must not show through the labels.
+        tint = com.flowfolio.core.designsystem.FlowFolio.palette.surface.copy(
+            alpha = (app.tint?.alpha ?: CHROME_TINT).coerceAtLeast(READER_MIN_TINT)
+        ),
         edge = Color.White.copy(alpha = CHROME_EDGE),
-        blur = app.blur ?: CHROME_BLUR
+        blur = (app.blur ?: CHROME_BLUR).coerceAtLeast(READER_MIN_BLUR),
+        grain = app.grain,
+        shine = app.shine / 2,
+        see = app.see
     )
 }
 
@@ -46,3 +52,6 @@ private const val INK3_LIFT = 0.7f
 private const val CHROME_EDGE = 0.16f
 private const val CHROME_TINT = 0.74f
 private val CHROME_BLUR = 28.dp
+
+private const val READER_MIN_TINT = 0.55f
+private val READER_MIN_BLUR = 12.dp

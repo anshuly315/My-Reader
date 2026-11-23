@@ -2,6 +2,7 @@ package com.flowfolio.feature.library
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +37,9 @@ internal fun AppearanceExtras(settings: UserSettings, actions: SettingsActions) 
                 { actions.onOption(Options.GLASS, GlassMode.entries[it].name) }
             )
         }
+        com.flowfolio.core.designsystem.GlassPreview(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
+        )
     }
     PaperGroup(settings, actions)
     WidgetGroup(settings, actions)

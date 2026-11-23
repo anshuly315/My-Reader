@@ -18,3 +18,14 @@ fun interface AudioExtractor {
 object NoAudioExtractor : AudioExtractor {
     override fun audioUrl(address: String): String? = null
 }
+
+/**
+ * The app no longer carries yt-dlp (removed 2026-11-23 with its 30 MB of Python to make the app smaller), so the
+ * extractor finds nothing; files, playlists, podcast feeds and pages that publish their audio still play.
+ */
+@dagger.Module
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+internal object NoExtractorModule {
+    @dagger.Provides
+    fun extractor(): AudioExtractor = NoAudioExtractor
+}

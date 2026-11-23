@@ -108,7 +108,6 @@ fun SettingsScreen(
     val audition by viewModel.audition.collectAsStateWithLifecycle()
     val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
     val update by viewModel.update.collectAsStateWithLifecycle()
-    val ocrPack by viewModel.ocrPackState.collectAsStateWithLifecycle()
     SettingsContent(
         settings,
         SettingsActions(
@@ -130,8 +129,6 @@ fun SettingsScreen(
             onRiffleVolume = viewModel::setRiffleVolume,
             onScrubHaptics = viewModel::setScrubHaptics,
             onNarratorSkip = viewModel::setNarratorSkip,
-            onOcrDownload = viewModel::downloadOcrPack,
-            onOcrRemove = viewModel::removeOcrPack,
             onReaderText = viewModel::setReaderText,
             onFlowOnOpen = viewModel::setFlowOnOpen,
             onFlowAsk = viewModel::setFlowAsk,
@@ -160,7 +157,7 @@ fun SettingsScreen(
             onAutoUpdate = viewModel::setAutoUpdate
         ),
         audition,
-        Housekeeping(viewModel.installedVersion, update, cacheBytes, ocrPack, viewModel.ocrPackBytes),
+        Housekeeping(viewModel.installedVersion, update, cacheBytes),
         onOpenLicenses,
         scrollToUpdates,
         onOpenAi
@@ -168,14 +165,7 @@ fun SettingsScreen(
 }
 
 /** What Settings needs beyond the stored settings: the build it is running, and what the cache weighs. */
-data class Housekeeping(
-    val version: String = "",
-    val update: UpdateState = UpdateState.Idle,
-    val cacheBytes: Long = 0L,
-    /** The scanned-books pack (ADR-0054) and its download size. */
-    val ocrPack: com.flowfolio.core.data.ocr.OcrPackState = com.flowfolio.core.data.ocr.OcrPackState.Missing,
-    val ocrPackBytes: Long = 0L
-)
+data class Housekeeping(val version: String = "", val update: UpdateState = UpdateState.Idle, val cacheBytes: Long = 0L)
 
 /** The Settings sections (ADR-0052), in the mock's order: each a hub row and a page of its own. */
 private enum class SettingsPage(val glyph: Glyph, @StringRes val title: Int) {
@@ -787,46 +777,8 @@ private fun ConversionGroup(settings: UserSettings, housekeeping: Housekeeping, 
             settings.flowCarry == FlowCarry.ASK,
             actions.onFlowAsk
         )
-        Divider()
-        ScannedBooksRow(housekeeping.ocrPack, housekeeping.ocrPackBytes, actions)
     }
 }
-
-/**
- * Scanned books (Phase 7, ADR-0054): the pack that lets Dynamic Flow read pages that are pictures of text. English
- * and other Latin-script languages for now; Arabic pages stay pictures until Tesseract joins.
- */
-@Composable
-private fun ScannedBooksRow(state: com.flowfolio.core.data.ocr.OcrPackState, bytes: Long, actions: SettingsActions) {
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(stringResource(R.string.settings_scanned), style = FlowFolioType.rowLabel.merge(FlowFolio.item))
-        val detail = when (state) {
-            com.flowfolio.core.data.ocr.OcrPackState.Ready -> stringResource(R.string.settings_scanned_ready)
-
-            is com.flowfolio.core.data.ocr.OcrPackState.Downloading ->
-                stringResource(R.string.settings_scanned_downloading, (state.fraction * PERCENT).toInt())
-
-            com.flowfolio.core.data.ocr.OcrPackState.Failed -> stringResource(R.string.settings_scanned_failed)
-
-            com.flowfolio.core.data.ocr.OcrPackState.Missing ->
-                stringResource(R.string.settings_scanned_detail, readableBytes(bytes))
-        }
-        Text(detail, style = FlowFolioType.rowDetail.merge(FlowFolio.hint))
-        when (state) {
-            com.flowfolio.core.data.ocr.OcrPackState.Ready ->
-                FlowFolioGhostButton(stringResource(R.string.settings_scanned_remove), actions.onOcrRemove)
-
-            is com.flowfolio.core.data.ocr.OcrPackState.Downloading -> Unit
-
-            else -> FlowFolioPrimaryButton(stringResource(R.string.settings_scanned_download), actions.onOcrDownload)
-        }
-    }
-}
-
-private const val PERCENT = 100
 
 /** `.set-h` + `.set-group`: a heading in the sub-item colour over a card of rows. */
 @Composable

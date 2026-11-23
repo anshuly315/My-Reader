@@ -192,6 +192,7 @@ class MainActivity : ComponentActivity() {
     private fun Overlays(splash: Boolean, onSplashDone: () -> Unit) {
         FlowNoticeHost(appViewModel.flowNotices, appViewModel::onNotificationOpen)
         ScanAskHost(appViewModel)
+        CrashReportHost()
         PhoneAccessHost(appViewModel)
         val update by appViewModel.updateAvailable.collectAsStateWithLifecycle()
         update?.let { release ->

@@ -346,50 +346,11 @@ class DefaultDynamicFlow @Inject constructor(
     }
 
     /**
-     * A scan never converted before: says what OCR means and how long it takes ([FlowNotice.ScanAsk]) and returns
-     * true, so nothing converts until [answerScan] agrees (TM1).
+     * Scanned books are no longer read by OCR (removed 2026-11-23 to make the app smaller): a scan converts quickly to
+     * its page pictures, so there is nothing to ask first.
      */
-    private suspend fun asksFirst(book: com.flowfolio.core.model.Book): Boolean {
-        val asking = book.id !in agreed && neverConverted(book.id) && settings.settings.first().scanNotice
-        val minutes = if (asking) scanMinutes(book) else null
-        minutes?.let { _notices.tryEmit(FlowNotice.ScanAsk(book.id, book.title, it)) }
-        return minutes != null
-    }
-
-    /** Nothing of a conversion is on disk: no bundle, no partial one, no pages already read by OCR. */
-    private fun neverConverted(bookId: String) = !files.epub(bookId).exists() &&
-        !files.partial(bookId).exists() && !files.ocrCache(bookId).exists()
-
-    /**
-     * About how many minutes OCR will take when [book] looks scanned (most of its first pages carry almost no text),
-     * else null. Any trouble opening it is left to the conversion, which reports it.
-     */
-    private suspend fun scanMinutes(book: com.flowfolio.core.model.Book): Int? = withContext(io) {
-        runCatching {
-            val fd = when (val s = book.storage) {
-                is BookStorage.Copied -> android.os.ParcelFileDescriptor.open(
-                    File(s.path),
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY
-                )
-
-                is BookStorage.Linked -> context.contentResolver.openFileDescriptor(android.net.Uri.parse(s.uri), "r")
-            } ?: return@runCatching null
-            // The file stays open while PDFium reads it.
-            fd.use { file ->
-                pdf.open(file).use { doc ->
-                    val sample = (0 until minOf(doc.pageCount, SCAN_SAMPLE_PAGES))
-                    val scanned = sample.count { i ->
-                        doc.pageText(i).text.count { !it.isWhitespace() } < SCANNED_MAX_CHARS
-                    }
-                    if (scanned * 2 <= sample.count()) {
-                        null
-                    } else {
-                        ((doc.pageCount * OCR_SECONDS_PER_PAGE) / SECONDS_PER_MINUTE).coerceAtLeast(1)
-                    }
-                }
-            }
-        }.getOrNull()
-    }
+    @Suppress("FunctionOnlyReturningConstant", "UnusedParameter")
+    private fun asksFirst(book: com.flowfolio.core.model.Book): Boolean = false
 
     override suspend fun saveFlowPlace(bookId: String, locator: String, pdfPage: Int?) = withContext(io) {
         if (pdfPage ==
@@ -421,17 +382,6 @@ class DefaultDynamicFlow @Inject constructor(
     }
 
     private companion object {
-        /** How many first pages are looked at to tell a scan, and how little text a scanned page has (TM1). */
-        private const val SCAN_SAMPLE_PAGES = 4
-        private const val SCANNED_MAX_CHARS = 20
-
-        /**
-         * Seconds OCR takes a page, for the notice's estimate. Measured on the owner's Fold in a release build
-         * (2026-11-12): 4.4 s for English, 7.0 s for Arabic; the script is not known yet when the notice asks.
-         */
-        private const val OCR_SECONDS_PER_PAGE = 6
-        private const val SECONDS_PER_MINUTE = 60
-
         const val NOTICE_BUFFER = 8
         const val TAG = "FlowFolioFlow"
 

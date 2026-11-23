@@ -125,7 +125,6 @@ class ResourcesOfferViewModel @Inject constructor(
 private class Offer(val resource: Resource, val picture: Int, val title: Int, val text: Int)
 
 private val OFFERS = listOf(
-    Offer(Resource.SCANNED_BOOKS, R.drawable.tour_flow, R.string.resources_scanned, R.string.resources_scanned_text),
     Offer(Resource.DICTIONARY, R.drawable.tour_words, R.string.resources_dictionary, R.string.resources_dictionary_text)
 )
 

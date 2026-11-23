@@ -16,6 +16,7 @@ class FlowFolioApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         // The home-screen widgets follow the app's own process only (not `:convert`, which converts and nothing else).
         if (getProcessName() == packageName) {
             widgets.start()

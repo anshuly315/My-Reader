@@ -76,4 +76,8 @@
     <string name="phone_not_now">Not now</string>
     <string name="phone_copy">Copy into app</string>
     <string name="phone_keep">Keep in place</string>
+    <string name="crash_title">FlowFolio closed unexpectedly</string>
+    <string name="crash_body">A report of what went wrong was saved on this phone. Share it so it can be fixed? It holds the error and the app and phone versions, nothing from your books.</string>
+    <string name="crash_share">Share report</string>
+    <string name="crash_dismiss">Not now</string>
 </resources>

@@ -44,8 +44,6 @@ data class SettingsActions(
     /** One Customise choice: glass, cover size and radius, hidden tabs. */
     val onOption: (String, String) -> Unit = { _, _ -> },
     val onNarratorSkip: (NarratorSkip) -> Unit = {},
-    val onOcrDownload: () -> Unit = {},
-    val onOcrRemove: () -> Unit = {},
     val onPageTurn: (PageTurn) -> Unit = {},
     val onSpreads: (Boolean) -> Unit = {},
     val onCoverAlone: (Boolean) -> Unit = {},
@@ -110,7 +108,6 @@ class SettingsViewModel @Inject constructor(
     private val ambience: Ambience,
     private val maintenance: Maintenance,
     private val updates: Updates,
-    private val ocrPack: com.flowfolio.core.data.ocr.OcrPack,
     private val filler: com.flowfolio.core.data.BookDetailsFiller,
     private val folders: com.flowfolio.core.data.FolderSync,
     private val folderBackup: com.flowfolio.core.data.FolderBackup
@@ -133,22 +130,6 @@ class SettingsViewModel @Inject constructor(
 
     /** Looks in every remembered folder again and answers how many new books it brought in. */
     suspend fun scanFolders() = folders.sync(inPlaceOnly = false).added.size
-
-    // ---- Scanned books (Phase 7, ADR-0054) ----
-
-    /** Whether the scanned-books pack is installed, downloading or missing. */
-    val ocrPackState: StateFlow<com.flowfolio.core.data.ocr.OcrPackState> = ocrPack.state
-
-    /** The pack's download size, for its row. */
-    val ocrPackBytes: Long = ocrPack.sizeBytes
-
-    fun downloadOcrPack() {
-        viewModelScope.launch { ocrPack.download() }
-    }
-
-    fun removeOcrPack() {
-        viewModelScope.launch { ocrPack.remove() }
-    }
 
     // ---- Housekeeping and updates (owner, M5 round 4) ----
 

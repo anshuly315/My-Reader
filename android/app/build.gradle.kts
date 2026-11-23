@@ -53,7 +53,7 @@ android {
         create("full") { dimension = "edition" }
     }
     // The bundled models are already compressed or do not compress: stored as they are, read with one copy.
-    androidResources { noCompress += listOf("onnx", "gz", "traineddata") }
+    androidResources { noCompress += listOf("gz") }
 
     // ADR-0036: one fixed key for the dev builds the owner sideloads, so each APK updates the last in place. It lives
     // outside the repo (`flowfolio.devSigning.*` in ~/.gradle/gradle.properties); without it (CI, other machines)
@@ -110,6 +110,19 @@ android {
             releaseSigning?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // The build sideloaded to the owner's phone (2026-11-23): the same app as debug (`.dev`, the same key, so it
+        // updates in place and keeps the library), but shrunk and optimised like a release: R8 removes unused code
+        // and resources, which takes the APK from about 220 MB to well under half and makes it start faster.
+        create("sideload") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
+            matchingFallbacks += listOf("release")
+            signingConfig = devSigning ?: signingConfigs.getByName("debug")
         }
         // Created by the baseline-profile plugin from `release`: installable (debug key) and drivable from adb, so
         // :benchmark can open a book. Never shipped.
@@ -244,7 +257,6 @@ dependencies {
     baselineProfile(projects.benchmark)
     implementation(libs.androidx.profileinstaller)
     implementation(projects.core.data)
-    implementation(projects.core.extract)
     implementation(projects.core.designsystem)
     implementation(projects.feature.library)
     implementation(projects.feature.reader)

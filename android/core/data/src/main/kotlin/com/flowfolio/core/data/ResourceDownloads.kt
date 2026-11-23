@@ -1,8 +1,6 @@
 package com.flowfolio.core.data
 
 import android.content.Context
-import com.flowfolio.core.data.ocr.OcrPack
-import com.flowfolio.core.data.ocr.OcrPackState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -10,25 +8,18 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** The optional downloads the app offers after its first launch (TM2, ADR-0057). */
-enum class Resource { SCANNED_BOOKS, DICTIONARY }
+enum class Resource { DICTIONARY }
 
 /**
  * The optional resources in one place, for the first-launch offer and Settings: what each costs, where it stands,
  * and downloading a chosen set in the background, one after another, so leaving the offer does not stop them.
  */
 @Singleton
-class ResourceDownloads @Inject constructor(
-    @ApplicationContext context: Context,
-    private val ocr: OcrPack,
-    private val wordNet: WordNetPack
-) {
+class ResourceDownloads @Inject constructor(@ApplicationContext context: Context, private val wordNet: WordNetPack) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
@@ -37,6 +28,8 @@ class ResourceDownloads @Inject constructor(
         context.getExternalFilesDir(null)?.let { external ->
             scope.launch { File(external, "voice").takeIf { it.exists() }?.deleteRecursively() }
         }
+        // Scanned-book OCR was removed (2026-11-23): its downloaded models go too.
+        scope.launch { File(context.filesDir, "ocr").takeIf { it.exists() }?.deleteRecursively() }
     }
 
     /** The Full edition carries every pack: nothing to offer. */
@@ -47,22 +40,16 @@ class ResourceDownloads @Inject constructor(
         if (!bundled) return
         scope.launch {
             BundledPacks.install(context)
-            ocr.recheck()
             wordNet.recheck()
         }
     }
 
     /** Download sizes in bytes. */
     fun sizeOf(resource: Resource): Long = when (resource) {
-        Resource.SCANNED_BOOKS -> ocr.sizeBytes
         Resource.DICTIONARY -> WordNetPack.SIZE
     }
 
     fun state(resource: Resource): StateFlow<ResourceState> = when (resource) {
-        Resource.SCANNED_BOOKS -> ocr.state.map {
-            it.asResource()
-        }.stateIn(scope, SharingStarted.Eagerly, ocr.state.value.asResource())
-
         Resource.DICTIONARY -> wordNet.state
     }
 
@@ -74,17 +61,9 @@ class ResourceDownloads @Inject constructor(
         for (r in Resource.entries.filter { it in chosen }) {
             scope.launch {
                 when (r) {
-                    Resource.SCANNED_BOOKS -> ocr.download()
                     Resource.DICTIONARY -> wordNet.download()
                 }
             }
         }
-    }
-
-    private fun OcrPackState.asResource(): ResourceState = when (this) {
-        OcrPackState.Missing -> ResourceState.Missing
-        is OcrPackState.Downloading -> ResourceState.Downloading(fraction)
-        OcrPackState.Ready -> ResourceState.Ready
-        OcrPackState.Failed -> ResourceState.Failed
     }
 }

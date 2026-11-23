@@ -23,10 +23,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.translate)
     implementation(libs.mlkit.language.id)
-    // OCR of scanned pages (ADR-0054) runs on Microsoft's ONNX Runtime (ADR-0059), through :core:voice's own bridge,
-    // and on Tesseract built from source (Arabic), through :core:ocr.
+    // Speech text and pack downloads for the narrator.
     implementation(projects.core.voice)
-    implementation(projects.core.ocr)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
