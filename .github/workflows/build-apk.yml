@@ -37,13 +37,21 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;4.1.2" >/dev/null
       - name: Unit tests of the new modules
         run: ./gradlew :core:ai:testDebugUnitTest :core:pdftools:testDebugUnitTest --no-daemon
-      # The sideload key comes from the READER_DEV_KEYSTORE secret (base64 of reader-dev.jks) when it is set, so the
-      # key need not live in the repository; until then the committed copy is used.
+      # The sideload key can come from the READER_DEV_KEYSTORE secret (base64 of reader-dev.jks). It is used only if
+      # it decodes to the same key (SHA-256 B8:F2:70:6F...); otherwise the build keeps the committed copy and warns,
+      # so a bad secret can never produce an APK that would not update the installed app.
       - name: Restore the signing key from the secret
         env:
           KEYSTORE: ${{ secrets.READER_DEV_KEYSTORE }}
         run: |
-          if [ -n "$KEYSTORE" ]; then echo "$KEYSTORE" | base64 -d > app/reader-dev.jks; fi
+          if [ -z "$KEYSTORE" ]; then echo "::warning::READER_DEV_KEYSTORE is not set; using the committed key."; exit 0; fi
+          if printf '%s' "$KEYSTORE" | tr -d ' \r\n\t' | base64 -d > /tmp/key.jks 2>/dev/null \
+            && keytool -list -keystore /tmp/key.jks -storepass readerdev 2>/dev/null | grep -q 'B8:F2:70:6F'; then
+            mv /tmp/key.jks app/reader-dev.jks
+            echo "Signing key from the secret matches."
+          else
+            echo "::warning::READER_DEV_KEYSTORE is set but is not the base64 of reader-dev.jks; using the committed key."
+          fi
       - name: Build the APK
         run: ./gradlew :app:assembleEssentialSideload -Pflowfolio.abis=arm64-v8a --no-daemon
       - name: Upload APK
